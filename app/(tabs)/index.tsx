@@ -50,7 +50,7 @@ export default function WeatherScreen() {
         <Pressable onPress={() => router.push('/(tabs)/search')} accessibilityLabel="Open search">
           <Text style={styles.icon}>🔍</Text>
         </Pressable>
-        <Pressable>
+        <Pressable onPress={() => router.push('/(tabs)/settings')} accessibilityLabel="Open settings">
           <Text style={styles.icon}>⚙️</Text>
         </Pressable>
       </View>
