@@ -27,7 +27,14 @@ export default function SettingsScreen() {
   const router = useRouter();
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.menuButton} onPress={() => {}}>
+    <TouchableOpacity
+      style={styles.menuButton}
+      onPress={() => {
+        if (item.id === '7') {
+          router.push('/(tabs)/version');
+        }
+      }}
+    >
       <View style={styles.iconContainer}>
         <Image source={item.icon} style={styles.menuIcon} />
       </View>
