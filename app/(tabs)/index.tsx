@@ -1,13 +1,14 @@
+import { useRouter } from 'expo-router';
 import React, { useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Animated,
-  PanResponder,
-  Dimensions,
+    Animated,
+    Dimensions,
+    PanResponder,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
 const { height } = Dimensions.get('window');
@@ -25,6 +26,7 @@ const DAYS = [
 
 export default function WeatherScreen() {
   const sheetY = useRef(new Animated.Value(height - 220)).current;
+  const router = useRouter();
 
   const panResponder = useRef(
     PanResponder.create({
@@ -45,7 +47,7 @@ export default function WeatherScreen() {
     <View style={styles.container}>
       {/* Top buttons */}
       <View style={styles.topBar}>
-        <Pressable>
+        <Pressable onPress={() => router.push('/(tabs)/search')} accessibilityLabel="Open search">
           <Text style={styles.icon}>🔍</Text>
         </Pressable>
         <Pressable>
