@@ -34,6 +34,7 @@ yarn-error.*
 .env*.local
 #.env is ignored by default; add explicit entry
 .env
+index.env
 
 # typescript
 *.tsbuildinfo
