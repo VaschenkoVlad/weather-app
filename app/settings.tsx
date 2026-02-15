@@ -73,6 +73,10 @@ export default function SettingsScreen() {
   const { t, locale, setLocale, languageLabel } = useLanguage();
   const { colors, isDark, setDarkMode } = useTheme();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [tempUnit, setTempUnit] = useState<'c' | 'f'>('c');
+  const [windUnit, setWindUnit] = useState<'km' | 'ms'>('km');
+  const [importantAlerts, setImportantAlerts] = useState<boolean>(true);
+  const [precipitationProbability, setPrecipitationProbability] = useState<boolean>(false);
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleSelectLanguage = (newLocale: Locale) => {
@@ -111,12 +115,18 @@ export default function SettingsScreen() {
                   <Text style={styles.itemText}>{t('settings.temperature')}</Text>
                 </View>
                 <View style={styles.segment}>
-                  <View style={[styles.segmentOption, styles.segmentOptionActive]}>
-                    <Text style={[styles.segmentText, styles.segmentTextActive]}>°C</Text>
-                  </View>
-                  <View style={styles.segmentOption}>
-                    <Text style={styles.segmentText}>°F</Text>
-                  </View>
+                  <Pressable
+                    style={[styles.segmentOption, tempUnit === 'c' && styles.segmentOptionActive]}
+                    onPress={() => setTempUnit('c')}
+                  >
+                    <Text style={[styles.segmentText, tempUnit === 'c' && styles.segmentTextActive]}>°C</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.segmentOption, tempUnit === 'f' && styles.segmentOptionActive]}
+                    onPress={() => setTempUnit('f')}
+                  >
+                    <Text style={[styles.segmentText, tempUnit === 'f' && styles.segmentTextActive]}>°F</Text>
+                  </Pressable>
                 </View>
               </View>
 
@@ -128,12 +138,18 @@ export default function SettingsScreen() {
                   <Text style={styles.itemText}>{t('settings.windSpeed')}</Text>
                 </View>
                 <View style={styles.segment}>
-                  <View style={[styles.segmentOption, styles.segmentOptionActive]}>
-                    <Text style={[styles.segmentText, styles.segmentTextActive]}>km/h</Text>
-                  </View>
-                  <View style={styles.segmentOption}>
-                    <Text style={styles.segmentText}>m/s</Text>
-                  </View>
+                  <Pressable
+                    style={[styles.segmentOption, windUnit === 'km' && styles.segmentOptionActive]}
+                    onPress={() => setWindUnit('km')}
+                  >
+                    <Text style={[styles.segmentText, windUnit === 'km' && styles.segmentTextActive]}>km/h</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.segmentOption, windUnit === 'ms' && styles.segmentOptionActive]}
+                    onPress={() => setWindUnit('ms')}
+                  >
+                    <Text style={[styles.segmentText, windUnit === 'ms' && styles.segmentTextActive]}>m/s</Text>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -149,9 +165,12 @@ export default function SettingsScreen() {
                   <Text style={styles.itemIcon}>🔔</Text>
                   <Text style={styles.itemText}>{t('settings.importantAlerts')}</Text>
                 </View>
-                <View style={[styles.toggle, styles.toggleOn]}>
-                  <View style={[styles.toggleThumb, styles.toggleThumbOn]} />
-                </View>
+                <Pressable
+                  style={[styles.toggle, importantAlerts && styles.toggleOn]}
+                  onPress={() => setImportantAlerts(!importantAlerts)}
+                >
+                  <View style={[styles.toggleThumb, importantAlerts && styles.toggleThumbOn]} />
+                </Pressable>
               </View>
 
               <View style={styles.divider} />
@@ -161,31 +180,17 @@ export default function SettingsScreen() {
                   <Text style={styles.itemIcon}>☔</Text>
                   <Text style={styles.itemText}>{t('settings.precipitationProbability')}</Text>
                 </View>
-                <View style={styles.toggle}>
-                  <View style={styles.toggleThumb} />
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Appearance / Dark mode */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t('settings.appearance')}</Text>
-            <View style={styles.card}>
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>🌙</Text>
-                  <Text style={styles.itemText}>{t('settings.darkMode')}</Text>
-                </View>
                 <Pressable
-                  style={[styles.toggle, isDark && styles.toggleOn]}
-                  onPress={() => setDarkMode(!isDark)}
+                  style={[styles.toggle, precipitationProbability && styles.toggleOn]}
+                  onPress={() => setPrecipitationProbability(!precipitationProbability)}
                 >
-                  <View style={[styles.toggleThumb, isDark && styles.toggleThumbOn]} />
+                  <View style={[styles.toggleThumb, precipitationProbability && styles.toggleThumbOn]} />
                 </Pressable>
               </View>
             </View>
           </View>
+
+          {/* NOTE: Appearance tab removed; dark mode moved into App section below */}
 
           {/* App */}
           <View style={styles.section}>
@@ -202,6 +207,21 @@ export default function SettingsScreen() {
                 </View>
                 <Text style={styles.itemHint}>{languageLabel} ›</Text>
               </Pressable>
+
+              <View style={styles.divider} />
+
+              <View style={styles.itemRow}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemIcon}>🌙</Text>
+                  <Text style={styles.itemText}>{t('settings.darkMode')}</Text>
+                </View>
+                <Pressable
+                  style={[styles.toggle, isDark && styles.toggleOn]}
+                  onPress={() => setDarkMode(!isDark)}
+                >
+                  <View style={[styles.toggleThumb, isDark && styles.toggleThumbOn]} />
+                </Pressable>
+              </View>
 
               <View style={styles.divider} />
 
