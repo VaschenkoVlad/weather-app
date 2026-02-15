@@ -1,9 +1,16 @@
+require('dotenv').config();
 const express = require('express');
 const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.OPENWEATHER_API_KEY || '31dbe9b4bd0ec150b6b8595120734b42';
+const API_KEY = process.env.OPENWEATHER_API_KEY;
+
+if (!API_KEY) {
+  console.error('ERROR: OPENWEATHER_API_KEY is not set. Set it in environment or .env file.');
+  // Exit so server doesn't run without an API key
+  process.exit(1);
+}
 
 // Simple weather proxy
 app.get('/weather', async (req, res) => {
