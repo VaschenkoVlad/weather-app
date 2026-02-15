@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,18 +8,71 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppThemeColors } from '@/constants/themeColors';
 
 const RECENT_CITIES = ['Kyiv', 'Lviv', 'London', 'Tokyo'];
 
+function createStyles(colors: AppThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.rootBg },
+    phoneContainer: {
+      width: 375, maxWidth: '100%', height: 812, maxHeight: '100%', backgroundColor: colors.screenBg,
+      borderRadius: 44, borderWidth: 8, borderColor: colors.borderStrong, padding: 24, paddingBottom: 24,
+      shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 20, shadowOffset: { width: 0, height: 24 }, elevation: 16,
+    },
+    searchHeader: { flexDirection: 'row', alignItems: 'center', columnGap: 12, marginTop: 10, marginBottom: 25 },
+    backBtn: {
+      width: 44, height: 44, borderRadius: 14, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    backIcon: { fontSize: 20, color: colors.backIcon },
+    searchInputWrapper: { flex: 1, position: 'relative', justifyContent: 'center' },
+    searchInput: {
+      width: '100%', backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.border, borderRadius: 14,
+      paddingVertical: 10, paddingHorizontal: 15, paddingLeft: 40, color: colors.text, fontSize: 14,
+    },
+    searchIconInner: { position: 'absolute', left: 15, fontSize: 14, color: colors.inputPlaceholder },
+    locationBtn: {
+      backgroundColor: colors.metricIconBg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.accent,
+      borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', columnGap: 8, marginBottom: 20,
+    },
+    locationEmoji: { fontSize: 16 },
+    locationText: { fontSize: 14, fontWeight: '600', color: colors.accent },
+    resultsScroll: { flex: 1 },
+    resultsContent: { paddingBottom: 12 },
+    sectionTitleWhite: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700', marginBottom: 12, color: colors.text },
+    recentList: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 10, marginBottom: 24 },
+    recentTag: {
+      backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 14,
+    },
+    recentTagText: { fontSize: 14, color: colors.text },
+    resultCard: {
+      backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: 20,
+      paddingVertical: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
+    },
+    resultCardDimmed: { opacity: 0.7 },
+    cityName: { fontSize: 18, fontWeight: '700', color: colors.text },
+    cityDesc: { marginTop: 2, fontSize: 12, color: colors.textMuted },
+    cityRight: { flexDirection: 'row', alignItems: 'center' },
+    cityWeatherIcon: { fontSize: 24, marginRight: 10 },
+    cityTemp: { fontSize: 24, fontWeight: '300', color: colors.text },
+  });
+}
+
 const POPULAR_CITIES = [
-  { id: 'kyiv', name: 'Kyiv', country: 'Ukraine', time: '14:20', icon: '☀️', temp: '-2°' },
-  { id: 'paris', name: 'Paris', country: 'France', time: '13:20', icon: '☁️', temp: '8°' },
-  { id: 'ny', name: 'New York', country: 'USA', time: '07:20', icon: '🌧️', temp: '5°' },
-  { id: 'berlin', name: 'Berlin', country: 'Germany', time: '13:20', icon: '❄️', temp: '1°', dimmed: true },
+  { id: 'kyiv', name: 'Kyiv', countryKey: 'countryUkraine' as const, time: '14:20', icon: '☀️', temp: '-2°' },
+  { id: 'paris', name: 'Paris', countryKey: 'countryFrance' as const, time: '13:20', icon: '☁️', temp: '8°' },
+  { id: 'ny', name: 'New York', countryKey: 'countryUSA' as const, time: '07:20', icon: '🌧️', temp: '5°' },
+  { id: 'berlin', name: 'Berlin', countryKey: 'countryGermany' as const, time: '13:20', icon: '❄️', temp: '1°', dimmed: true },
 ];
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.root}>
@@ -38,8 +91,8 @@ export default function SearchScreen() {
             <Text style={styles.searchIconInner}>🔍</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search city..."
-              placeholderTextColor="rgba(249, 250, 251, 0.6)"
+              placeholder={t('search.placeholder')}
+              placeholderTextColor={colors.inputPlaceholder}
             />
           </View>
         </View>
@@ -47,7 +100,7 @@ export default function SearchScreen() {
         {/* Location button */}
         <Pressable style={styles.locationBtn}>
           <Text style={styles.locationEmoji}>📍</Text>
-          <Text style={styles.locationText}>Use my location</Text>
+          <Text style={styles.locationText}>{t('search.useMyLocation')}</Text>
         </Pressable>
 
         {/* Content */}
@@ -57,7 +110,7 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Recent */}
-          <Text style={styles.sectionTitle}>Recent</Text>
+          <Text style={styles.sectionTitleWhite}>{t('search.recent')}</Text>
           <View style={styles.recentList}>
             {RECENT_CITIES.map((city) => (
               <Pressable key={city} style={styles.recentTag}>
@@ -67,7 +120,7 @@ export default function SearchScreen() {
           </View>
 
           {/* Popular cities */}
-          <Text style={styles.sectionTitle}>Popular cities</Text>
+          <Text style={styles.sectionTitleWhite}>{t('search.popularCities')}</Text>
           <View>
             {POPULAR_CITIES.map((city) => (
               <Pressable
@@ -77,7 +130,7 @@ export default function SearchScreen() {
                 <View>
                   <Text style={styles.cityName}>{city.name}</Text>
                   <Text style={styles.cityDesc}>
-                    {city.country}, {city.time}
+                    {t(`search.${city.countryKey}`)}, {city.time}
                   </Text>
                 </View>
                 <View style={styles.cityRight}>
@@ -92,167 +145,4 @@ export default function SearchScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#cbd5e1',
-  },
-  phoneContainer: {
-    width: 375,
-    maxWidth: '100%',
-    height: 812,
-    maxHeight: '100%',
-    backgroundColor: '#0f172a',
-    borderRadius: 44,
-    borderWidth: 8,
-    borderColor: '#111827',
-    padding: 24,
-    paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 24 },
-    elevation: 16,
-  },
-  searchHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: 12,
-    marginTop: 10,
-    marginBottom: 25,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 20,
-    color: '#f9fafb',
-  },
-  searchInputWrapper: {
-    flex: 1,
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  searchInput: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    paddingLeft: 40,
-    color: '#f9fafb',
-    fontSize: 14,
-  },
-  searchIconInner: {
-    position: 'absolute',
-    left: 15,
-    fontSize: 14,
-    color: 'rgba(249, 250, 251, 0.5)',
-  },
-  locationBtn: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#38bdf8',
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    columnGap: 8,
-    marginBottom: 20,
-  },
-  locationEmoji: {
-    fontSize: 16,
-  },
-  locationText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#38bdf8',
-  },
-  resultsScroll: {
-    flex: 1,
-  },
-  resultsContent: {
-    paddingBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    opacity: 0.5,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  recentList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: 10,
-    rowGap: 10,
-    marginBottom: 24,
-  },
-  recentTag: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-  },
-  recentTagText: {
-    fontSize: 14,
-    color: '#f9fafb',
-  },
-  resultCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  resultCardDimmed: {
-    opacity: 0.7,
-  },
-  cityName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f9fafb',
-  },
-  cityDesc: {
-    marginTop: 2,
-    fontSize: 12,
-    color: 'rgba(249, 250, 251, 0.5)',
-  },
-  cityRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cityWeatherIcon: {
-    fontSize: 24,
-    marginRight: 10,
-  },
-  cityTemp: {
-    fontSize: 24,
-    fontWeight: '300',
-    color: '#f9fafb',
-  },
-});
 

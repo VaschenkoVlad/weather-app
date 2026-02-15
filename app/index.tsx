@@ -1,19 +1,83 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
+import type { AppThemeColors } from '@/constants/themeColors';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+function createStyles(colors: AppThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.rootBg },
+    phoneContainer: {
+      width: 375, maxWidth: '100%', height: 812, maxHeight: '100%', backgroundColor: colors.screenBg,
+      borderRadius: 44, borderWidth: 8, borderColor: colors.borderStrong, overflow: 'hidden',
+      shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 20, shadowOffset: { width: 0, height: 24 }, elevation: 16,
+    },
+    scrollWrapper: { flex: 1 },
+    scrollContent: { padding: 24, paddingBottom: 50 },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    locationTitle: { fontSize: 24, fontWeight: '700', color: colors.text },
+    locationSubtitle: { marginTop: 4, fontSize: 13, color: colors.textSecondary },
+    controls: { flexDirection: 'row', gap: 8 },
+    iconBtn: {
+      backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, padding: 10, borderRadius: 14,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    iconBtnText: { fontSize: 16 },
+    heroSection: { alignItems: 'center', paddingVertical: 20 },
+    tempWrapper: { flexDirection: 'row', alignItems: 'flex-start' },
+    mainTemp: { fontSize: 100, fontWeight: '300', color: colors.text },
+    mainTempDegree: { fontSize: 40, color: colors.accent, marginTop: 10, marginLeft: 2 },
+    heroStatus: { marginTop: 8, color: colors.accent, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', fontSize: 13 },
+    metricsGrid: { marginTop: 20, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+    metricCard: {
+      width: '48%', backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border,
+      borderRadius: 24, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12,
+    },
+    metricIcon: { fontSize: 20, backgroundColor: colors.metricIconBg, padding: 8, borderRadius: 12 },
+    metricLabel: { fontSize: 11, textTransform: 'uppercase', color: colors.textMuted },
+    metricValue: { fontSize: 15, color: colors.text, marginTop: 2 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 25, marginBottom: 12 },
+    sectionTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+    sectionLink: { fontSize: 14, fontWeight: '500', color: colors.accent },
+    hourlyScroll: { marginBottom: 20 },
+    hourCard: {
+      minWidth: 65, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border,
+      paddingVertical: 12, paddingHorizontal: 10, borderRadius: 20, alignItems: 'center', marginRight: 10,
+    },
+    hourCardActive: { backgroundColor: colors.hourCardActiveBg, borderColor: colors.hourCardActiveBg },
+    hourTime: { fontSize: 11, marginBottom: 6, color: colors.textSecondary },
+    hourIcon: { fontSize: 20, marginBottom: 6 },
+    hourTemp: { fontSize: 15, fontWeight: '700', color: colors.text },
+    hourActiveText: { color: colors.hourActiveText },
+    weeklyList: { marginTop: 4, marginBottom: 12, rowGap: 10 },
+    dayButton: {
+      backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: 22,
+      paddingVertical: 14, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
+    dayMain: { flexDirection: 'row', alignItems: 'center', columnGap: 15 },
+    dayName: { width: 40, fontWeight: '600', color: colors.text },
+    dayIcon: { fontSize: 18 },
+    dayRange: { fontSize: 14, fontWeight: '700', color: colors.text },
+    dayRangeMin: { fontWeight: '400', opacity: 0.6 },
+  });
+}
+
 const WEEK_DAYS = [
-  { key: 'mon', label: 'Mon', icon: '🌤️', max: 4, min: -1 },
-  { key: 'tue', label: 'Tue', icon: '🌧️', max: 3, min: 0 },
-  { key: 'wed', label: 'Wed', icon: '❄️', max: -2, min: -6 },
-  { key: 'thu', label: 'Thu', icon: '☀️', max: 2, min: -2 },
-  { key: 'fri', label: 'Fri', icon: '☁️', max: 5, min: 2 },
+  { key: 'mon', labelKey: 'dayMon' as const, icon: '🌤️', max: 4, min: -1 },
+  { key: 'tue', labelKey: 'dayTue' as const, icon: '🌧️', max: 3, min: 0 },
+  { key: 'wed', labelKey: 'dayWed' as const, icon: '❄️', max: -2, min: -6 },
+  { key: 'thu', labelKey: 'dayThu' as const, icon: '☀️', max: 2, min: -2 },
+  { key: 'fri', labelKey: 'dayFri' as const, icon: '☁️', max: 5, min: 2 },
 ];
 
 export default function WeatherScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const hourlyData = useMemo(
     () =>
       HOURS.map((hour) => {
@@ -45,8 +109,8 @@ export default function WeatherScreen() {
           {/* Top bar */}
           <View style={styles.topBar}>
             <View>
-              <Text style={styles.locationTitle}>New York</Text>
-              <Text style={styles.locationSubtitle}>Saturday, 28 Dec</Text>
+              <Text style={styles.locationTitle}>{t('home.location')}</Text>
+              <Text style={styles.locationSubtitle}>{t('home.date')}</Text>
             </View>
 
             <View style={styles.controls}>
@@ -73,7 +137,7 @@ export default function WeatherScreen() {
               <Text style={styles.mainTemp}>5</Text>
               <Text style={styles.mainTempDegree}>°</Text>
             </View>
-            <Text style={styles.heroStatus}>Cloudy</Text>
+            <Text style={styles.heroStatus}>{t('home.cloudy')}</Text>
           </View>
 
           {/* Metrics */}
@@ -81,28 +145,28 @@ export default function WeatherScreen() {
             <View style={styles.metricCard}>
               <Text style={styles.metricIcon}>🌬️</Text>
               <View>
-                <Text style={styles.metricLabel}>Wind</Text>
+                <Text style={styles.metricLabel}>{t('home.wind')}</Text>
                 <Text style={styles.metricValue}>18 km/h</Text>
               </View>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricIcon}>💧</Text>
               <View>
-                <Text style={styles.metricLabel}>Humidity</Text>
+                <Text style={styles.metricLabel}>{t('home.humidity')}</Text>
                 <Text style={styles.metricValue}>64%</Text>
               </View>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricIcon}>☀️</Text>
               <View>
-                <Text style={styles.metricLabel}>UV Index</Text>
+                <Text style={styles.metricLabel}>{t('home.uvIndex')}</Text>
                 <Text style={styles.metricValue}>Low 1</Text>
               </View>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricIcon}>🌡️</Text>
               <View>
-                <Text style={styles.metricLabel}>Pressure</Text>
+                <Text style={styles.metricLabel}>{t('home.pressure')}</Text>
                 <Text style={styles.metricValue}>1012 hPa</Text>
               </View>
             </View>
@@ -110,8 +174,8 @@ export default function WeatherScreen() {
 
           {/* Next 24 hours */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Next 24 Hours</Text>
-            <Text style={styles.sectionLink}>Full Day</Text>
+            <Text style={styles.sectionTitle}>{t('home.next24Hours')}</Text>
+            <Text style={styles.sectionLink}>{t('home.fullDay')}</Text>
           </View>
 
           <ScrollView
@@ -157,14 +221,14 @@ export default function WeatherScreen() {
 
           {/* 7-day forecast */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>7-Day Forecast</Text>
+            <Text style={styles.sectionTitle}>{t('home.forecast7Day')}</Text>
           </View>
 
           <View style={styles.weeklyList}>
             {WEEK_DAYS.map((day) => (
               <View key={day.key} style={styles.dayButton}>
                 <View style={styles.dayMain}>
-                  <Text style={styles.dayName}>{day.label}</Text>
+                  <Text style={styles.dayName}>{t(`home.${day.labelKey}`)}</Text>
                   <Text style={styles.dayIcon}>{day.icon}</Text>
                 </View>
                 <Text style={styles.dayRange}>
@@ -180,217 +244,3 @@ export default function WeatherScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#cbd5e1',
-  },
-  phoneContainer: {
-    width: 375,
-    maxWidth: '100%',
-    height: 812,
-    maxHeight: '100%',
-    backgroundColor: '#0f172a',
-    borderRadius: 44,
-    borderWidth: 8,
-    borderColor: '#111827',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 24 },
-    elevation: 16,
-  },
-  scrollWrapper: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 50,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  locationTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#f9fafb',
-  },
-  locationSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: 'rgba(249, 250, 251, 0.6)',
-  },
-  controls: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  iconBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    padding: 10,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBtnText: {
-    fontSize: 16,
-  },
-  heroSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  tempWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  mainTemp: {
-    fontSize: 100,
-    fontWeight: '300',
-    color: '#f9fafb',
-  },
-  mainTempDegree: {
-    fontSize: 40,
-    color: '#38bdf8',
-    marginTop: 10,
-    marginLeft: 2,
-  },
-  heroStatus: {
-    marginTop: 8,
-    color: '#38bdf8',
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    fontSize: 13,
-  },
-  metricsGrid: {
-    marginTop: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
-  },
-  metricCard: {
-    width: '48%',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 24,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  metricIcon: {
-    fontSize: 20,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    padding: 8,
-    borderRadius: 12,
-  },
-  metricLabel: {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    color: 'rgba(249, 250, 251, 0.5)',
-  },
-  metricValue: {
-    fontSize: 15,
-    color: '#f9fafb',
-    marginTop: 2,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 25,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#f9fafb',
-  },
-  sectionLink: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#38bdf8',
-  },
-  hourlyScroll: {
-    marginBottom: 20,
-  },
-  hourCard: {
-    minWidth: 65,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  hourCardActive: {
-    backgroundColor: '#38bdf8',
-    borderColor: '#38bdf8',
-  },
-  hourTime: {
-    fontSize: 11,
-    marginBottom: 6,
-    color: 'rgba(249, 250, 251, 0.6)',
-  },
-  hourIcon: {
-    fontSize: 20,
-    marginBottom: 6,
-  },
-  hourTemp: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#f9fafb',
-  },
-  hourActiveText: {
-    color: '#0f172a',
-  },
-  weeklyList: {
-    marginTop: 4,
-    marginBottom: 12,
-    rowGap: 10,
-  },
-  dayButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 22,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dayMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: 15,
-  },
-  dayName: {
-    width: 40,
-    fontWeight: '600',
-    color: '#f9fafb',
-  },
-  dayIcon: {
-    fontSize: 18,
-  },
-  dayRange: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#f9fafb',
-  },
-  dayRangeMin: {
-    fontWeight: '400',
-    opacity: 0.6,
-  },
-});
