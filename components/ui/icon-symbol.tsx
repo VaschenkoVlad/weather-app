@@ -1,41 +1,41 @@
 // Fallback for using MaterialIcons on Android and web.
 
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
-import { ComponentProps } from 'react';
-import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
+import { Image, type ImageStyle, type StyleProp } from 'react-native';
+import { OpaqueColorValue } from 'react-native';
 
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
-type IconSymbolName = keyof typeof MAPPING;
+const IMAGE_MAPPING = {
+  'chevron.right': require('../../photo/mingcute_arrow-up-fill.png'),
+  'search': require('../../photo/search.png'),
+  'map': require('../../photo/map.png'),
+  'gps': require('../../photo/gps.png'),
+  'version': require('../../photo/version.png'),
+  // add more mappings as needed
+} as const;
 
-/**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
- */
-const MAPPING = {
-  'house.fill': 'home',
-  'paperplane.fill': 'send',
-  'chevron.left.forwardslash.chevron.right': 'code',
-  'chevron.right': 'chevron-right',
-} as IconMapping;
+type IconSymbolName = keyof typeof IMAGE_MAPPING;
 
-/**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
- */
 export function IconSymbol({
   name,
   size = 24,
   color,
   style,
 }: {
-  name: IconSymbolName;
+  name: IconSymbolName | string;
   size?: number;
-  color: string | OpaqueColorValue;
-  style?: StyleProp<TextStyle>;
-  weight?: SymbolWeight;
+  color?: string | OpaqueColorValue;
+  style?: StyleProp<ImageStyle>;
+  weight?: unknown;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  const source = (IMAGE_MAPPING as Record<string, any>)[name];
+  if (!source) {
+    return null;
+  }
+
+  return (
+    <Image
+      source={source}
+      style={[{ width: size, height: size, tintColor: color as any }, style]}
+      resizeMode="contain"
+    />
+  );
 }
