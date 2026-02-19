@@ -1,16 +1,210 @@
-import React, { useMemo } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  Pressable,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import type { AppThemeColors } from '@/constants/themeColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { AppThemeColors } from '@/constants/themeColors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
+import { default as React, default as React, useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SERVER_BASE } from '../constants/server';
+
+export default function SearchScreen() {
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [weather, setWeather] = useState<any | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const pre = await AsyncStorage.getItem('preloadedWeather');
+        const perr = await AsyncStorage.getItem('preload_error');
+        if (perr) {
+          setError(perr);
+          await AsyncStorage.removeItem('preload_error');
+        }
+        if (pre) {
+          setWeather(JSON.parse(pre));
+          await AsyncStorage.removeItem('preloadedWeather');
+        }
+
+        const rec = await AsyncStorage.getItem('recentCities');
+        if (rec) setRecent(JSON.parse(rec));
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, []);
+
+  const saveRecent = useCallback(async (c: string) => {
+    try {
+      const next = [c, ...recent.filter(r => r !== c)].slice(0, 6);
+      setRecent(next);
+      await AsyncStorage.setItem('recentCities', JSON.stringify(next));
+      await AsyncStorage.setItem('lastCity', c);
+    } catch (e) {
+      // ignore
+    }
+  }, [recent]);
+
+  const fetchWeather = useCallback(async (q: string) => {
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+    setWeather(null);
+    try {
+      const res = await fetch(`${SERVER_BASE}/weather?city=${encodeURIComponent(q)}`);
+      const json = await res.json();
+      if (!res.ok) setError(json?.error || 'Server error');
+      else {
+        setWeather(json);
+        saveRecent(q);
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  }, [saveRecent]);
+
+  const fetchByCoords = useCallback(async (lat: number, lon: number) => {
+    setLoading(true);
+    setError(null);
+    setWeather(null);
+    try {
+      const res = await fetch(`${SERVER_BASE}/weather?lat=${lat}&lon=${lon}`);
+      const json = await res.json();
+      if (!res.ok) setError(json?.error || 'Server error');
+      else {
+        setWeather(json);
+        if (json?.city) saveRecent(json.city);
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  }, [saveRecent]);
+
+  const handleSearch = useCallback(() => {
+    if (query.trim()) fetchWeather(query.trim());
+  }, [fetchWeather, query]);
+
+  const handleMyLocation = useCallback(async () => {
+    setError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setError('Location permission denied');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (pos?.coords) {
+        fetchByCoords(pos.coords.latitude, pos.coords.longitude);
+      } else {
+        setError('Unable to determine location');
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Unable to get location');
+    }
+  }, [fetchByCoords]);
+
+  const renderDay = useCallback((d: any) => (
+    <View key={d.dt} style={styles.dayRow}>
+      <Text>{new Date(d.dt * 1000).toLocaleDateString()}</Text>
+      <Text>{d.weather?.description || ''}</Text>
+      <Text>{d.temp?.day ? `${d.temp.day}°C` : ''}</Text>
+    </View>
+  ), []);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <Text style={styles.heading}>Search location</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Enter city"
+        value={query}
+        onChangeText={setQuery}
+        returnKeyType="search"
+        onSubmitEditing={handleSearch}
+      />
+
+      <View style={styles.rowButtons}>
+        <TouchableOpacity style={[styles.button, styles.primary]} onPress={handleSearch}>
+          <Text style={styles.buttonText}>Search</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, styles.secondary]} onPress={handleMyLocation}>
+          <Text style={styles.buttonText}>My location</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading && <ActivityIndicator size="large" />}
+      {error && <Text style={styles.error}>{error}</Text>}
+
+      {weather && (
+        <View style={styles.resultWrap}>
+          <Text style={styles.resultCity}>{weather.city}</Text>
+          <Text style={styles.resultTemp}>{weather.temperature}°C</Text>
+          <Text style={styles.resultDesc}>{weather.description}</Text>
+          {weather.icon && <Image source={{ uri: weather.icon }} style={styles.icon} />}
+
+          <View style={styles.details}>
+            <Text>Wind: {weather.wind} m/s</Text>
+            <Text>Humidity: {weather.humidity}%</Text>
+            <Text>Pressure: {weather.pressure} hPa</Text>
+            <Text>UV Index: {weather.uvi}</Text>
+          </View>
+
+          {weather.daily && weather.daily.length > 0 && (
+            <View style={styles.forecast}>
+              <Text style={styles.sectionTitle}>7-day forecast</Text>
+              {weather.daily.map((d: any) => renderDay(d))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {recent.length > 0 && (
+        <View style={styles.recentWrap}>
+          <Text style={styles.sectionTitle}>Recent</Text>
+          <View style={styles.chips}>
+            {recent.map((r) => (
+              <TouchableOpacity key={r} style={styles.chip} onPress={() => { setQuery(r); fetchWeather(r); }}>
+                <Text>{r}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flexGrow: 1, padding: 20, backgroundColor: '#fff' },
+  heading: { fontSize: 22, fontWeight: '700', marginBottom: 12, textAlign: 'center' },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 12 },
+  rowButtons: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginHorizontal: 6 },
+  primary: { backgroundColor: '#2563eb' },
+  secondary: { backgroundColor: '#6b7280' },
+  buttonText: { color: '#fff', fontWeight: '600' },
+  error: { color: 'red', textAlign: 'center', marginVertical: 8 },
+  resultWrap: { alignItems: 'center', marginTop: 12 },
+  resultCity: { fontSize: 20, fontWeight: '700' },
+  resultTemp: { fontSize: 32, marginTop: 6 },
+  resultDesc: { marginTop: 6, color: '#444' },
+  icon: { width: 80, height: 80, marginTop: 8 },
+  details: { marginTop: 8, alignItems: 'flex-start' },
+  forecast: { width: '100%', marginTop: 12 },
+  sectionTitle: { fontWeight: '700', marginBottom: 8 },
+  dayRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderColor: '#eee' },
+  recentWrap: { marginTop: 14 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+  chip: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#f3f4f6', borderRadius: 20, marginRight: 8, marginBottom: 8 },
+});
 
 const RECENT_CITIES = ['Kyiv', 'Lviv', 'London', 'Tokyo'];
 

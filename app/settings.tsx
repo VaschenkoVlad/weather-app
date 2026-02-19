@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable, Modal } from 'react-native';
-import { useRouter } from 'expo-router';
+import type { AppThemeColors } from '@/constants/themeColors';
+import type { Locale } from '@/constants/translations';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { Locale } from '@/constants/translations';
-import type { AppThemeColors } from '@/constants/themeColors';
+import { useRouter } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 function createStyles(colors: AppThemeColors) {
   return StyleSheet.create({

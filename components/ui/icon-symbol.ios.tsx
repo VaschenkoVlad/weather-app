@@ -1,5 +1,4 @@
-import { Image, type ImageStyle, type StyleProp } from 'react-native';
-import { OpaqueColorValue } from 'react-native';
+import { Image, OpaqueColorValue, type ImageStyle, type StyleProp } from 'react-native';
 
 const IMAGE_MAPPING = {
   'chevron.right': require('../../photo/mingcute_arrow-up-fill.png'),
