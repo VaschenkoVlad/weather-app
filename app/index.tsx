@@ -1,9 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SERVER_BASE } from '../constants/server';
 
 export default function IndexScreen() {
   const router = useRouter();
@@ -14,35 +12,21 @@ export default function IndexScreen() {
   }, [router]);
 
   const handleFindMyLocation = useCallback(async () => {
+    // Request foreground permissions and navigate to dedicated weather screen
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        // Store an error marker and navigate anyway so search screen can show it
-        await AsyncStorage.setItem('preload_error', 'Location permission denied');
-        router.push('/search');
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      if (!pos?.coords) {
-        await AsyncStorage.setItem('preload_error', 'Unable to determine location');
-        router.push('/search');
-        return;
-      }
+      if (!pos?.coords) return;
 
-      // Fetch weather from local server and save it to AsyncStorage so
-      // the search screen can display it immediately after navigation.
-      const res = await fetch(`${SERVER_BASE}/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-      const json = await res.json().catch(() => null);
-      if (res.ok && json) {
-        await AsyncStorage.setItem('preloadedWeather', JSON.stringify(json));
-      } else {
-        await AsyncStorage.setItem('preload_error', json?.error || 'Server error');
-      }
-
-      router.push('/search');
-    } catch (e: any) {
-      await AsyncStorage.setItem('preload_error', e?.message || 'Network error');
-      router.push('/search');
+      // Navigate to weather screen with coordinates in the query string
+      // Build path as a string first and cast to `any` to satisfy Expo Router's stricter RelativePath types.
+      const path = `/weather?lat=${encodeURIComponent(String(pos.coords.latitude))}&lon=${encodeURIComponent(String(pos.coords.longitude))}`;
+      router.push(path as any);
+    } catch (e) {
+      // ignore — user can open Search
     }
   }, [router]);
 

@@ -16,6 +16,7 @@ function RootLayoutNav() {
         <Stack.Screen name="index" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="search" />
+        <Stack.Screen name="weather" />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </NavThemeProvider>
