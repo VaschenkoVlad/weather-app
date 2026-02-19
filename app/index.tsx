@@ -21,10 +21,8 @@ export default function IndexScreen() {
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       if (!pos?.coords) return;
 
-      // Navigate to weather screen with coordinates in the query string
-      // Build path as a string first and cast to `any` to satisfy Expo Router's stricter RelativePath types.
-      const path = `/weather?lat=${encodeURIComponent(String(pos.coords.latitude))}&lon=${encodeURIComponent(String(pos.coords.longitude))}`;
-      router.push(path as any);
+      // Navigate to the dynamic weather route using bracketed pathname for type-safe navigation
+      router.push({ pathname: '/weather/[lat]/[lon]', params: { lat: String(pos.coords.latitude), lon: String(pos.coords.longitude) } });
     } catch (e) {
       // ignore — user can open Search
     }

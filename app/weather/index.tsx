@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image, ScrollView } from 'react-native';
 import { useSearchParams } from 'expo-router';
-import { SERVER_BASE } from '../constants/server';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SERVER_BASE } from '../../constants/server';
 
 export default function WeatherScreen() {
   const params = useSearchParams();
