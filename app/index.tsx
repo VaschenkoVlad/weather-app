@@ -12,19 +12,31 @@ export default function IndexScreen() {
   }, [router]);
 
   const handleFindMyLocation = useCallback(async () => {
-    // Request foreground permissions and navigate to dedicated weather screen
+    // Request foreground permissions and navigate to weather screen with coordinates
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
+        console.log('Location permission denied');
         return;
       }
+      
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      if (!pos?.coords) return;
+      if (!pos?.coords) {
+        console.log('No coordinates available');
+        return;
+      }
 
-      // Navigate to the dynamic weather route using bracketed pathname for type-safe navigation
-      router.push({ pathname: '/weather/[lat]/[lon]', params: { lat: String(pos.coords.latitude), lon: String(pos.coords.longitude) } });
+      // Navigate directly to weather screen with lat/lon parameters
+      router.push({ 
+        pathname: '/weather', 
+        params: { 
+          lat: String(pos.coords.latitude), 
+          lon: String(pos.coords.longitude) 
+        } 
+      });
     } catch (e) {
-      // ignore — user can open Search
+      console.error('Location error:', e);
+      // User can still use search
     }
   }, [router]);
 

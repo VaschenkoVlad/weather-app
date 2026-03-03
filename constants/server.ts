@@ -1,6 +1,5 @@
-// Replace the IP below with your computer's LAN IP so Expo Go on your phone
-// can reach the local server. Example: "http://192.168.1.173:3000"
-// IMPORTANT: Keep the port matching the server (default 3000).
-export const SERVER_BASE = 'http://192.168.1.173:3000';
+// Open-Meteo API - free weather API without tokens
+export const OPEN_METEO_BASE = 'https://api.open-meteo.com/v1';
 
-// If you prefer, set this at runtime or via env during bundling.
+// Geocoding API for city search
+export const GEOCODING_BASE = 'https://geocoding-api.open-meteo.com/v1';

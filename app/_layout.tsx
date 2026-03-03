@@ -14,9 +14,9 @@ function RootLayoutNav() {
     <NavThemeProvider value={navTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="settings" />
         <Stack.Screen name="search" />
         <Stack.Screen name="weather" />
+        <Stack.Screen name="settings" />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </NavThemeProvider>

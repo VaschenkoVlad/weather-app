@@ -1,229 +1,193 @@
-import type { AppThemeColors } from '@/constants/themeColors';
-import { useLanguage } from '@/context/LanguageContext';
-import { useTheme } from '@/context/ThemeContext';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { GEOCODING_BASE } from '../constants/server';
 
-const RECENT_CITIES = ['Kyiv', 'Lviv', 'London', 'Tokyo'];
-
-function createStyles(colors: AppThemeColors) {
-  return StyleSheet.create({
-    root: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.rootBg },
-    phoneContainer: {
-      width: 375, maxWidth: '100%', height: 812, maxHeight: '100%', backgroundColor: colors.screenBg,
-      borderRadius: 44, borderWidth: 8, borderColor: colors.borderStrong, padding: 24, paddingBottom: 24,
-      shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 20, shadowOffset: { width: 0, height: 24 }, elevation: 16,
-    },
-    searchHeader: { flexDirection: 'row', alignItems: 'center', columnGap: 12, marginTop: 10, marginBottom: 25 },
-    backBtn: {
-      width: 44, height: 44, borderRadius: 14, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    backIcon: { fontSize: 20, color: colors.backIcon },
-    searchInputWrapper: { flex: 1, position: 'relative', justifyContent: 'center' },
-    searchInput: {
-      width: '100%', backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.border, borderRadius: 14,
-      paddingVertical: 10, paddingHorizontal: 15, paddingLeft: 40, color: colors.text, fontSize: 14,
-    },
-    searchIconInner: { position: 'absolute', left: 15, fontSize: 14, color: colors.inputPlaceholder },
-    locationBtn: {
-      backgroundColor: colors.metricIconBg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.accent,
-      borderRadius: 18, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', columnGap: 8, marginBottom: 20,
-    },
-    locationEmoji: { fontSize: 16 },
-    locationText: { fontSize: 14, fontWeight: '600', color: colors.accent },
-    resultsScroll: { flex: 1 },
-    resultsContent: { paddingBottom: 12 },
-    sectionTitleWhite: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700', marginBottom: 12, color: colors.text },
-    recentList: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 10, marginBottom: 24 },
-    recentTag: {
-      backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 14,
-    },
-    recentTagText: { fontSize: 14, color: colors.text },
-    resultCard: {
-      backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: 20,
-      paddingVertical: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
-    },
-    resultCardDimmed: { opacity: 0.7 },
-    cityName: { fontSize: 18, fontWeight: '700', color: colors.text },
-    cityDesc: { marginTop: 2, fontSize: 12, color: colors.textMuted },
-    cityRight: { flexDirection: 'row', alignItems: 'center' },
-    cityWeatherIcon: { fontSize: 24, marginRight: 10 },
-    cityTemp: { fontSize: 24, fontWeight: '300', color: colors.text },
-  });
+interface SearchResult {
+  name: string;
+  lat: number;
+  lon: number;
+  country?: string;
+  admin1?: string;
 }
 
-const POPULAR_CITIES = [
-  { id: 'kyiv', name: 'Kyiv', countryKey: 'countryUkraine' as const, time: '14:20', icon: '☀️', temp: '-2°' },
-  { id: 'paris', name: 'Paris', countryKey: 'countryFrance' as const, time: '13:20', icon: '☁️', temp: '8°' },
-  { id: 'ny', name: 'New York', countryKey: 'countryUSA' as const, time: '07:20', icon: '🌧️', temp: '5°' },
-  { id: 'berlin', name: 'Berlin', countryKey: 'countryGermany' as const, time: '13:20', icon: '❄️', temp: '1°', dimmed: true },
-];
+const POPULAR_CITIES = ['Київ', 'Львів', 'Харків', 'Одеса', 'Дніпро', 'Запоріжжя'];
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 20 },
+  searchHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#f5f5f5',
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
+  backIcon: { fontSize: 20, color: '#333' },
+  searchInputWrapper: { flex: 1, position: 'relative' },
+  searchInput: {
+    width: '100%', backgroundColor: '#f5f5f5', borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 15, paddingLeft: 40, color: '#333', fontSize: 16,
+  },
+  searchIcon: { position: 'absolute', left: 15, top: 12, fontSize: 16, color: '#666' },
+  recentSection: { marginTop: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#333' },
+  recentList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  recentTag: {
+    backgroundColor: '#f0f0f0', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16,
+  },
+  recentTagText: { fontSize: 14, color: '#333' },
+  resultsScroll: { flex: 1 },
+  resultCard: {
+    backgroundColor: '#f9f9f9', borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 16, marginBottom: 8,
+  },
+  cityName: { fontSize: 16, fontWeight: '600', color: '#333' },
+  cityDesc: { fontSize: 14, color: '#666', marginTop: 2 },
+  loadingContainer: { alignItems: 'center', justifyContent: 'center', padding: 20 },
+  errorText: { color: 'red', textAlign: 'center', margin: 20 },
+});
 
 export default function SearchScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
   const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [weather, setWeather] = useState<any | null>(null);
-  const [recent, setRecent] = useState<string[]>([]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const rec = await AsyncStorage.getItem('recentCities');
-        if (rec) setRecent(JSON.parse(rec));
-      } catch (e) {
-        // ignore
-      }
-    })();
-  }, []);
-
-  const saveRecent = useCallback(async (c: string) => {
-    try {
-      const next = [c, ...recent.filter(r => r !== c)].slice(0, 6);
-      setRecent(next);
-      await AsyncStorage.setItem('recentCities', JSON.stringify(next));
-      await AsyncStorage.setItem('lastCity', c);
-    } catch (e) {
-      // ignore
+  const searchCities = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim()) {
+      setResults([]);
+      return;
     }
-  }, [recent]);
 
-  const fetchWeather = useCallback(async (q: string) => {
-    if (!q) return;
     setLoading(true);
     setError(null);
-    setWeather(null);
+
     try {
-      const res = await fetch(`${SERVER_BASE}/weather?city=${encodeURIComponent(q)}`);
-      const json = await res.json();
-      if (!res.ok) setError(json?.error || 'Server error');
-      else {
-        setWeather(json);
-        saveRecent(q);
+      const url = `${GEOCODING_BASE}/search?name=${encodeURIComponent(searchQuery)}&count=10&language=uk`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('Помилка пошуку');
       }
-    } catch (e: any) {
-      setError(e?.message || 'Network error');
-    } finally {
-      setLoading(false);
-    }
-  }, [saveRecent]);
 
-  const fetchByCoords = useCallback(async (lat: number, lon: number) => {
-    setLoading(true);
-    setError(null);
-    setWeather(null);
-    try {
-      const res = await fetch(`${SERVER_BASE}/weather?lat=${lat}&lon=${lon}`);
-      const json = await res.json();
-      if (!res.ok) setError(json?.error || 'Server error');
-      else {
-        setWeather(json);
-        if (json?.city) saveRecent(json.city);
-      }
-    } catch (e: any) {
-      setError(e?.message || 'Network error');
-    } finally {
-      setLoading(false);
-    }
-  }, [saveRecent]);
-
-  const handleSearch = useCallback(() => {
-    if (query.trim()) fetchWeather(query.trim());
-  }, [fetchWeather, query]);
-
-  const handleMyLocation = useCallback(async () => {
-    setError(null);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Location permission denied');
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) {
+        setResults([]);
         return;
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      if (pos?.coords) {
-        fetchByCoords(pos.coords.latitude, pos.coords.longitude);
-      } else {
-        setError('Unable to determine location');
-      }
+
+      const formattedResults: SearchResult[] = data.results.map((item: any) => ({
+        name: item.name,
+        lat: item.latitude,
+        lon: item.longitude,
+        country: item.country,
+        admin1: item.admin1,
+      }));
+
+      setResults(formattedResults);
     } catch (e: any) {
-      setError(e?.message || 'Unable to get location');
+      setError(e?.message || 'Помилка мережі');
+      setResults([]);
+    } finally {
+      setLoading(false);
     }
-  }, [fetchByCoords]);
+  }, []);
+
+  const handleCityPress = useCallback((city: SearchResult) => {
+    router.push({
+      pathname: '/weather',
+      params: {
+        lat: String(city.lat),
+        lon: String(city.lon),
+        city: city.name,
+      },
+    });
+  }, [router]);
+
+  const handlePopularCityPress = useCallback((cityName: string) => {
+    searchCities(cityName);
+  }, [searchCities]);
+
+  const handleBackPress = useCallback(() => {
+    router.back();
+  }, [router]);
 
   return (
     <View style={styles.root}>
-      <View style={styles.phoneContainer}>
-        {/* Header with search input */}
+      <View style={styles.container}>
         <View style={styles.searchHeader}>
-          <Pressable
-            style={styles.backBtn}
-            onPress={() => router.back()}
-            accessibilityLabel="Go back"
-          >
+          <Pressable style={styles.backBtn} onPress={handleBackPress}>
             <Text style={styles.backIcon}>←</Text>
           </Pressable>
-
           <View style={styles.searchInputWrapper}>
-            <Text style={styles.searchIconInner}>🔍</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder={t('search.placeholder')}
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholder="Пошук міста..."
+              placeholderTextColor="#666"
+              value={query}
+              onChangeText={(text) => {
+                setQuery(text);
+                searchCities(text);
+              }}
+              autoFocus
             />
+            <Text style={styles.searchIcon}>🔍</Text>
           </View>
         </View>
 
-        {/* Location button */}
-        <Pressable style={styles.locationBtn} onPress={() => { /* handled elsewhere */ }}>
-          <Text style={styles.locationEmoji}>📍</Text>
-          <Text style={styles.locationText}>{t('search.useMyLocation')}</Text>
-        </Pressable>
+        <ScrollView style={styles.resultsScroll} showsVerticalScrollIndicator={false}>
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" />
+              <Text style={{ marginTop: 10 }}>Пошук...</Text>
+            </View>
+          )}
 
-        {/* Content */}
-        <ScrollView
-          style={styles.resultsScroll}
-          contentContainerStyle={styles.resultsContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Recent */}
-          <Text style={styles.sectionTitleWhite}>{t('search.recent')}</Text>
-          <View style={styles.recentList}>
-            {RECENT_CITIES.map((city) => (
-              <Pressable key={city} style={styles.recentTag} onPress={() => { /* navigate or search */ }}>
-                <Text style={styles.recentTagText}>{city}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {error && <Text style={styles.errorText}>{error}</Text>}
 
-          {/* Popular cities */}
-          <Text style={styles.sectionTitleWhite}>{t('search.popularCities')}</Text>
-          <View>
-            {POPULAR_CITIES.map((city) => (
-              <Pressable
-                key={city.id}
-                style={[styles.resultCard, city.dimmed && styles.resultCardDimmed]}
-                onPress={() => { /* navigate to details */ }}
-              >
-                <View>
-                  <Text style={styles.cityName}>{city.name}</Text>
-                  <Text style={styles.cityDesc}>
-                    {t(`search.${city.countryKey}`)}, {city.time}
-                  </Text>
-                </View>
-                <View style={styles.cityRight}>
-                  <Text style={styles.cityWeatherIcon}>{city.icon}</Text>
-                  <Text style={styles.cityTemp}>{city.temp}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
+          {!loading && !error && results.length === 0 && query.length === 0 && (
+            <View style={styles.recentSection}>
+              <Text style={styles.sectionTitle}>Популярні міста</Text>
+              <View style={styles.recentList}>
+                {POPULAR_CITIES.map((city) => (
+                  <Pressable
+                    key={city}
+                    style={styles.recentTag}
+                    onPress={() => handlePopularCityPress(city)}
+                  >
+                    <Text style={styles.recentTagText}>{city}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {!loading && !error && results.length > 0 && (
+            <View>
+              <Text style={styles.sectionTitle}>Результати пошуку</Text>
+              {results.map((city, index) => (
+                <Pressable
+                  key={`${city.lat}-${city.lon}-${index}`}
+                  style={styles.resultCard}
+                  onPress={() => handleCityPress(city)}
+                >
+                  <View>
+                    <Text style={styles.cityName}>{city.name}</Text>
+                    <Text style={styles.cityDesc}>
+                      {city.admin1 && `${city.admin1}, `}{city.country}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {!loading && !error && query.length > 0 && results.length === 0 && (
+            <View style={styles.loadingContainer}>
+              <Text>Міста не знайдено</Text>
+            </View>
+          )}
         </ScrollView>
       </View>
     </View>
