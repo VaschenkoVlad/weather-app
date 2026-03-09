@@ -1,5 +1,6 @@
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSettings, useTranslations } from './context/SettingsContext';
 
@@ -7,6 +8,9 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { settings, toggleTemperatureUnit, toggleWindUnit, toggleLanguage, togglePushNotifications, toggleRainAlerts } = useSettings();
   const { t } = useTranslations();
+  
+  // Перевіряємо чи додаток запущений в Expo Go
+  const isExpoGo = Constants.appOwnership === 'expo';
 
   const handleBackPress = () => {
     router.back();
@@ -110,8 +114,9 @@ export default function SettingsScreen() {
               <Text style={styles.itemText}>{t('pushNotifications')}</Text>
             </View>
             <Pressable
-              style={[styles.toggle, settings.pushNotifications && styles.toggleOn]}
+              style={[styles.toggle, isExpoGo && styles.toggleDisabled]}
               onPress={togglePushNotifications}
+              disabled={isExpoGo}
             >
               <View style={styles.toggleThumb} />
             </Pressable>
@@ -264,6 +269,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 3,
     left: 3,
+  },
+  toggleDisabled: {
+    opacity: 0.5,
   },
   // Unit Selector
   unitSelector: {

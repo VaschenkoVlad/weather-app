@@ -1,4 +1,6 @@
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -106,14 +108,49 @@ export default function WeatherScreen() {
 
   const reverseGeocode = useCallback(async (latitude: number, longitude: number) => {
     try {
+      // Спочатку пробуємо expo-location reverse geocoding
+      try {
+        const locationResults = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (locationResults && locationResults.length > 0) {
+          const location = locationResults[0];
+          // Пріоритет полів: city > town > village > district > subregion > region
+          const cityName = location.city || 
+                          location.town || 
+                          location.village || 
+                          location.district || 
+                          location.subregion || 
+                          location.region ||
+                          location.admin1;
+          
+          if (cityName) {
+            console.log('Found city name via expo-location:', cityName);
+            return cityName;
+          }
+        }
+      } catch (exploreError) {
+        console.log('Expo reverse geocoding failed, trying Open-Meteo API');
+      }
+
+      // Якщо expo-location не спрацював, використовуємо Open-Meteo Geocoding API
       const url = `${GEOCODING_BASE}/reverse?latitude=${latitude}&longitude=${longitude}&limit=1`;
       const res = await fetch(url);
       const data = await res.json();
       
       if (data.results && data.results.length > 0) {
-        return data.results[0].name || data.results[0].admin1 || t('currentLocation');
+        const result = data.results[0];
+        // Пріоритет полів: name > town > village > city > admin1 > county
+        const cityName = result.name || 
+                        result.town || 
+                        result.village || 
+                        result.city || 
+                        result.admin1 || 
+                        result.county;
+        
+        console.log('Found city name via Open-Meteo API:', cityName);
+        return cityName || t('currentLocation');
       }
       
+      console.log('No city name found, using fallback');
       return t('currentLocation');
     } catch (e) {
       console.error('Reverse geocoding error:', e);
@@ -123,20 +160,86 @@ export default function WeatherScreen() {
 
   useEffect(() => {
     if (lat && lon) {
+      console.log('Effect triggered with params:', { lat, lon, city });
+      
       if (!city) {
         // Якщо місто не передано, спробувати отримати назву через reverse geocoding
+        console.log('No city provided, performing reverse geocoding...');
         reverseGeocode(parseFloat(lat), parseFloat(lon)).then(cityName => {
+          console.log('Reverse geocoding completed:', cityName);
           fetchWeather(lat, lon, cityName);
+        }).catch(error => {
+          console.error('Reverse geocoding failed:', error);
+          fetchWeather(lat, lon, t('currentLocation'));
         });
       } else {
+        console.log('Using provided city name:', city);
         fetchWeather(lat, lon, city);
       }
     } else {
       // Якщо немає координат, показуємо welcome екран
+      console.log('No coordinates provided, showing welcome screen');
       setLoading(false);
       return;
     }
-  }, [lat, lon, city, fetchWeather, reverseGeocode]);
+  }, [lat, lon, city, fetchWeather, reverseGeocode, t]);
+
+  // Запит дозволу на сповіщення (працює і в Expo Go, і в build)
+  useEffect(() => {
+    const requestPermissions = async () => {
+      try {
+        // Перевіряємо чи додаток запущений в Expo Go
+        const isExpoGo = Constants.appOwnership === 'expo';
+        
+        if (isExpoGo) {
+          console.log('Running in Expo Go - requesting local notification permissions only');
+        } else {
+          console.log('Running in build - requesting full notification permissions');
+        }
+
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('Notification permissions not granted');
+        } else {
+          console.log('Notification permissions granted');
+        }
+      } catch (error) {
+        console.error('Error requesting notification permissions:', error);
+      }
+    };
+
+    requestPermissions();
+  }, []);
+
+  // Функція для миттєвого сповіщення (працює і в Expo Go, і в build)
+  const sendInstantNotification = useCallback(async () => {
+    try {
+      // Перевіряємо чи додаток запущений в Expo Go
+      const isExpoGo = Constants.appOwnership === 'expo';
+      
+      if (isExpoGo) {
+        console.log('Running in Expo Go - sending local notification only');
+      } else {
+        console.log('Running in build - sending notification with full features');
+      }
+
+      // Локальні сповіщення працюють і в Expo Go, і в build
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Йо, прогноз апдейтнувся 🌤️",
+          body: "Бро, швидко глянь погоду — сьогодні вайбова температура 😎",
+          sound: 'default',
+          // В Expo Go priority може не працювати, але це не викличе помилку
+          ...(isExpoGo ? {} : { priority: Notifications.AndroidNotificationPriority.HIGH }),
+        },
+        trigger: { seconds: 1, type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL }, // Сповіщення через 1 секунду
+      });
+      
+      console.log('Test notification scheduled successfully');
+    } catch (error) {
+      console.error('Error scheduling notification:', error);
+    }
+  }, []);
 
   const handleSearchPress = useCallback(() => {
     router.push('/search');
@@ -160,9 +263,14 @@ export default function WeatherScreen() {
         return;
       }
 
-      const cityName = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      console.log('Got coordinates:', pos.coords.latitude, pos.coords.longitude);
 
-      // Оновлюємо поточну сторінку з новими координатами
+      // Отримуємо назву міста через reverse geocoding
+      const cityName = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      
+      console.log('City name determined:', cityName);
+
+      // Оновлюємо поточну сторінку з новими координатами та назвою міста
       router.replace({ 
         pathname: '/', 
         params: { 
@@ -207,6 +315,15 @@ export default function WeatherScreen() {
             >
               <Text style={styles.btnIcon}>🔍</Text>
               <Text style={styles.btnText}>{t('selectCity')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.btnNotification} 
+              onPress={sendInstantNotification}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnIcon}>🔔</Text>
+              <Text style={styles.btnText}>Test notification</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -480,6 +597,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: 'white',
+  },
+  btnNotification: {
+    backgroundColor: '#10b981',
+    padding: 18,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 8,
   },
   // Weather styles
   scrollWrapper: {

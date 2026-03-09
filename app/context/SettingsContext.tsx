@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface SettingsState {
@@ -182,9 +183,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const togglePushNotifications = () => {
-    updateSettings({
-      pushNotifications: !settings.pushNotifications
-    });
+    // Перевіряємо чи додаток запущений в Expo Go
+    const isExpoGo = Constants.appOwnership === 'expo';
+    
+    if (isExpoGo) {
+      console.log('Push notifications are not available in Expo Go - only local notifications work');
+      // В Expo Go можна показати повідомлення користувачу
+      updateSettings({
+        pushNotifications: false // Примусово вимикаємо в Expo Go
+      });
+    } else {
+      updateSettings({
+        pushNotifications: !settings.pushNotifications
+      });
+    }
   };
 
   const toggleRainAlerts = () => {

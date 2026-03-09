@@ -17,7 +17,8 @@
         "foregroundImage": "./photo/2.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.weatherapp"
     },
     "web": {
       "output": "static",
@@ -41,6 +42,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f072a343-9a8a-41f7-a610-b78a377a36d1"
+      }
+    },
+    "owner": "vladvaschenko"
   }
 }
