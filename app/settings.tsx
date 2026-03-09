@@ -1,287 +1,304 @@
-import type { AppThemeColors } from '@/constants/themeColors';
-import type { Locale } from '@/constants/translations';
-import { useLanguage } from '@/context/LanguageContext';
-import { useTheme } from '@/context/ThemeContext';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-
-function createStyles(colors: AppThemeColors) {
-  return StyleSheet.create({
-    root: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.rootBg },
-    phoneContainer: {
-      width: 375, maxWidth: '100%', height: 812, maxHeight: '100%',
-      backgroundColor: colors.screenBg, borderRadius: 44, borderWidth: 8, borderColor: colors.borderStrong,
-      overflow: 'hidden', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 32,
-      shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 20, shadowOffset: { width: 0, height: 24 }, elevation: 16,
-    },
-    scroll: { flex: 1 },
-    content: { paddingBottom: 16 },
-    header: { flexDirection: 'row', alignItems: 'center', columnGap: 15, marginBottom: 32, marginTop: 10 },
-    backBtn: {
-      width: 44, height: 44, borderRadius: 14, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    backIcon: { fontSize: 22, color: colors.backIcon },
-    headerTitle: { fontSize: 24, fontWeight: '700', color: colors.text },
-    section: { marginBottom: 28 },
-    sectionLabel: {
-      fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, paddingLeft: 5,
-      fontWeight: '700', color: colors.textMuted,
-    },
-    card: { backgroundColor: colors.cardBg, borderRadius: 24, borderWidth: 1, borderColor: colors.border },
-    itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 18, paddingHorizontal: 20 },
-    divider: { height: 1, backgroundColor: colors.border },
-    itemInfo: { flexDirection: 'row', alignItems: 'center', columnGap: 12 },
-    itemIcon: { fontSize: 18, color: colors.itemIcon },
-    itemText: { fontSize: 15, color: colors.text },
-    itemHint: { fontSize: 14, color: colors.textSecondary },
-    segment: { flexDirection: 'row', backgroundColor: colors.segmentBg, borderRadius: 12, padding: 3 },
-    segmentOption: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 9 },
-    segmentOptionActive: { backgroundColor: colors.segmentActiveBg },
-    segmentText: { fontSize: 13, fontWeight: '600', color: colors.segmentText },
-    segmentTextActive: { color: colors.segmentTextActive },
-    toggle: {
-      width: 48, height: 26, borderRadius: 20, backgroundColor: colors.toggleBg,
-      paddingHorizontal: 3, paddingVertical: 3, flexDirection: 'row', alignItems: 'center',
-    },
-    toggleOn: { backgroundColor: colors.toggleOnBg, justifyContent: 'flex-end' },
-    toggleThumb: {
-      width: 20, height: 20, borderRadius: 10, backgroundColor: colors.toggleThumb,
-      shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
-    },
-    toggleThumbOn: {},
-    footer: { marginTop: 8, alignItems: 'center' },
-    footerText: { fontSize: 12, color: colors.footerText },
-    modalOverlay: { flex: 1, backgroundColor: colors.modalOverlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
-    modalContent: {
-      width: '100%', maxWidth: 320, backgroundColor: colors.modalBg, borderRadius: 24, borderWidth: 1, borderColor: colors.modalBorder, padding: 20,
-    },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 16, textAlign: 'center' },
-    modalOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, marginBottom: 6 },
-    modalOptionActive: { backgroundColor: colors.metricIconBg },
-    modalOptionText: { fontSize: 16, color: colors.segmentText },
-    modalOptionTextActive: { color: colors.text, fontWeight: '600' },
-    modalOptionCheck: { fontSize: 16, color: colors.accent, fontWeight: '700' },
-    modalCancel: { marginTop: 12, paddingVertical: 12, alignItems: 'center' },
-    modalCancelText: { fontSize: 15, color: colors.textSecondary },
-  });
-}
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSettings, useTranslations } from './context/SettingsContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { t, locale, setLocale, languageLabel } = useLanguage();
-  const { colors, isDark, setDarkMode } = useTheme();
-  const [languageModalVisible, setLanguageModalVisible] = useState(false);
-  const [tempUnit, setTempUnit] = useState<'c' | 'f'>('c');
-  const [windUnit, setWindUnit] = useState<'km' | 'ms'>('km');
-  const [importantAlerts, setImportantAlerts] = useState<boolean>(true);
-  const [precipitationProbability, setPrecipitationProbability] = useState<boolean>(false);
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { settings, toggleTemperatureUnit, toggleWindUnit, toggleLanguage, togglePushNotifications, toggleRainAlerts } = useSettings();
+  const { t } = useTranslations();
 
-  const handleSelectLanguage = (newLocale: Locale) => {
-    setLocale(newLocale);
-    setLanguageModalVisible(false);
+  const handleBackPress = () => {
+    router.back();
+  };
+
+  const handleLanguagePress = () => {
+    toggleLanguage();
+  };
+
+  const handleDataSourcePress = () => {
+    // TODO: Реалізувати вибір джерела даних
+    console.log('Data source selector');
   };
 
   return (
-    <View style={styles.root}>
-      <View style={styles.phoneContainer}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable
-              style={styles.backBtn}
-              onPress={() => router.back()}
-              accessibilityLabel="Go back"
-            >
-              <Text style={styles.backIcon}>←</Text>
-            </Pressable>
-            <Text style={styles.headerTitle}>{t('settings.title')}</Text>
-          </View>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.settingsHeader}>
+        <Pressable style={styles.backBtn} onPress={handleBackPress}>
+          <Text style={styles.backText}>{t('back')}</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>{t('settings')}</Text>
+      </View>
 
-          {/* Units */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t('settings.units')}</Text>
-
-            <View style={styles.card}>
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>🌡️</Text>
-                  <Text style={styles.itemText}>{t('settings.temperature')}</Text>
-                </View>
-                <View style={styles.segment}>
-                  <Pressable
-                    style={[styles.segmentOption, tempUnit === 'c' && styles.segmentOptionActive]}
-                    onPress={() => setTempUnit('c')}
-                  >
-                    <Text style={[styles.segmentText, tempUnit === 'c' && styles.segmentTextActive]}>°C</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.segmentOption, tempUnit === 'f' && styles.segmentOptionActive]}
-                    onPress={() => setTempUnit('f')}
-                  >
-                    <Text style={[styles.segmentText, tempUnit === 'f' && styles.segmentTextActive]}>°F</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>🌬️</Text>
-                  <Text style={styles.itemText}>{t('settings.windSpeed')}</Text>
-                </View>
-                <View style={styles.segment}>
-                  <Pressable
-                    style={[styles.segmentOption, windUnit === 'km' && styles.segmentOptionActive]}
-                    onPress={() => setWindUnit('km')}
-                  >
-                    <Text style={[styles.segmentText, windUnit === 'km' && styles.segmentTextActive]}>km/h</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.segmentOption, windUnit === 'ms' && styles.segmentOptionActive]}
-                    onPress={() => setWindUnit('ms')}
-                  >
-                    <Text style={[styles.segmentText, windUnit === 'ms' && styles.segmentTextActive]}>m/s</Text>
-                  </Pressable>
-                </View>
-              </View>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Одиниці вимірювання */}
+        <Text style={styles.sectionLabel}>{t('units')}</Text>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsItem}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>🌡️</Text>
+              <Text style={styles.itemText}>{t('temperature')}</Text>
             </View>
-          </View>
-
-          {/* Notifications */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t('settings.notifications')}</Text>
-
-            <View style={styles.card}>
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>🔔</Text>
-                  <Text style={styles.itemText}>{t('settings.importantAlerts')}</Text>
-                </View>
-                <Pressable
-                  style={[styles.toggle, importantAlerts && styles.toggleOn]}
-                  onPress={() => setImportantAlerts(!importantAlerts)}
-                >
-                  <View style={[styles.toggleThumb, importantAlerts && styles.toggleThumbOn]} />
-                </Pressable>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>☔</Text>
-                  <Text style={styles.itemText}>{t('settings.precipitationProbability')}</Text>
-                </View>
-                <Pressable
-                  style={[styles.toggle, precipitationProbability && styles.toggleOn]}
-                  onPress={() => setPrecipitationProbability(!precipitationProbability)}
-                >
-                  <View style={[styles.toggleThumb, precipitationProbability && styles.toggleThumbOn]} />
-                </Pressable>
-              </View>
-            </View>
-          </View>
-
-          {/* NOTE: Appearance tab removed; dark mode moved into App section below */}
-
-          {/* App */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t('settings.app')}</Text>
-
-            <View style={styles.card}>
+            <View style={styles.unitSelector}>
               <Pressable
-                style={styles.itemRow}
-                onPress={() => setLanguageModalVisible(true)}
+                style={[
+                  styles.unitOpt,
+                  settings.temperatureUnit === 'C' && styles.unitOptActive
+                ]}
+                onPress={toggleTemperatureUnit}
               >
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>🗺️</Text>
-                  <Text style={styles.itemText}>{t('settings.interfaceLanguage')}</Text>
-                </View>
-                <Text style={styles.itemHint}>{languageLabel} ›</Text>
+                <Text style={[
+                  styles.unitOptText,
+                  settings.temperatureUnit === 'C' && styles.unitOptTextActive
+                ]}>°C</Text>
               </Pressable>
-
-              <View style={styles.divider} />
-
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>🌙</Text>
-                  <Text style={styles.itemText}>{t('settings.darkMode')}</Text>
-                </View>
-                <Pressable
-                  style={[styles.toggle, isDark && styles.toggleOn]}
-                  onPress={() => setDarkMode(!isDark)}
-                >
-                  <View style={[styles.toggleThumb, isDark && styles.toggleThumbOn]} />
-                </Pressable>
-              </View>
-
-              <View style={styles.divider} />
-
-              <Pressable style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemIcon}>⭐</Text>
-                  <Text style={styles.itemText}>{t('settings.rateApp')}</Text>
-                </View>
+              <Pressable
+                style={[
+                  styles.unitOpt,
+                  settings.temperatureUnit === 'F' && styles.unitOptActive
+                ]}
+                onPress={toggleTemperatureUnit}
+              >
+                <Text style={[
+                  styles.unitOptText,
+                  settings.temperatureUnit === 'F' && styles.unitOptTextActive
+                ]}>°F</Text>
               </Pressable>
             </View>
           </View>
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>{t('settings.version')}</Text>
-          <Text style={styles.footerText}>{t('settings.rights')}</Text>
+          <View style={styles.settingsItem}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>🌬️</Text>
+              <Text style={styles.itemText}>{t('wind')}</Text>
+            </View>
+            <View style={styles.unitSelector}>
+              <Pressable
+                style={[
+                  styles.unitOpt,
+                  settings.windUnit === 'kmh' && styles.unitOptActive
+                ]}
+                onPress={toggleWindUnit}
+              >
+                <Text style={[
+                  styles.unitOptText,
+                  settings.windUnit === 'kmh' && styles.unitOptTextActive
+                ]}>км/г</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.unitOpt,
+                  settings.windUnit === 'ms' && styles.unitOptActive
+                ]}
+                onPress={toggleWindUnit}
+              >
+                <Text style={[
+                  styles.unitOptText,
+                  settings.windUnit === 'ms' && styles.unitOptTextActive
+                ]}>м/с</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
 
-        {/* Модальне вікно вибору мови */}
-        <Modal
-          visible={languageModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setLanguageModalVisible(false)}
-        >
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={() => setLanguageModalVisible(false)}
-          >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{t('settings.interfaceLanguage')}</Text>
-              <Pressable
-                style={[styles.modalOption, locale === 'en' && styles.modalOptionActive]}
-                onPress={() => handleSelectLanguage('en')}
-              >
-                <Text style={[styles.modalOptionText, locale === 'en' && styles.modalOptionTextActive]}>
-                  {t('language.english')}
-                </Text>
-                {locale === 'en' && <Text style={styles.modalOptionCheck}>✓</Text>}
-              </Pressable>
-              <Pressable
-                style={[styles.modalOption, locale === 'uk' && styles.modalOptionActive]}
-                onPress={() => handleSelectLanguage('uk')}
-              >
-                <Text style={[styles.modalOptionText, locale === 'uk' && styles.modalOptionTextActive]}>
-                  {t('language.ukrainian')}
-                </Text>
-                {locale === 'uk' && <Text style={styles.modalOptionCheck}>✓</Text>}
-              </Pressable>
-              <Pressable
-                style={styles.modalCancel}
-                onPress={() => setLanguageModalVisible(false)}
-              >
-                <Text style={styles.modalCancelText}>{t('language.cancel')}</Text>
-              </Pressable>
+        {/* Сповіщення */}
+        <Text style={styles.sectionLabel}>{t('notifications')}</Text>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsItem}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>🔔</Text>
+              <Text style={styles.itemText}>{t('pushNotifications')}</Text>
             </View>
+            <Pressable
+              style={[styles.toggle, settings.pushNotifications && styles.toggleOn]}
+              onPress={togglePushNotifications}
+            >
+              <View style={styles.toggleThumb} />
+            </Pressable>
+          </View>
+          <View style={styles.settingsItem}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>☔</Text>
+              <Text style={styles.itemText}>{t('rainAlerts')}</Text>
+            </View>
+            <Pressable
+              style={[styles.toggle, settings.rainAlerts && styles.toggleOn]}
+              onPress={toggleRainAlerts}
+            >
+              <View style={styles.toggleThumb} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Додатково */}
+        <Text style={styles.sectionLabel}>{t('additional')}</Text>
+        <View style={styles.settingsCard}>
+          <Pressable style={styles.settingsItem} onPress={handleLanguagePress}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>🌐</Text>
+              <Text style={styles.itemText}>{t('language')}</Text>
+            </View>
+            <Text style={styles.itemHint}>
+              {settings.language === 'ua' ? t('ukrainian') : t('english')} ›
+            </Text>
           </Pressable>
-        </Modal>
-      </View>
+          <Pressable style={styles.settingsItem} onPress={handleDataSourcePress}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>🛠️</Text>
+              <Text style={styles.itemText}>{t('dataSource')}</Text>
+            </View>
+            <Text style={styles.itemHint}>{t('openMeteo')} ›</Text>
+          </Pressable>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footerInfo}>
+          <Text style={styles.footerText}>{t('version')}</Text>
+          <Text style={styles.footerText}>{t('developed')}</Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    padding: 24,
+  },
+  // Header
+  settingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+    marginTop: 10,
+    marginBottom: 30,
+  },
+  backBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backText: {
+    color: 'white',
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: 'white',
+    margin: 0,
+  },
+  // Scroll
+  scroll: {
+    flex: 1,
+  },
+  // Sections
+  sectionLabel: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    opacity: 0.4,
+    marginBottom: 12,
+    fontWeight: '700',
+    paddingLeft: 5,
+    color: 'white',
+  },
+  // Settings Card
+  settingsCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    marginBottom: 25,
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 18,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  itemInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemIcon: {
+    fontSize: 18,
+    opacity: 0.7,
+  },
+  itemText: {
+    fontSize: 15,
+    color: 'white',
+  },
+  itemHint: {
+    fontSize: 15,
+    opacity: 0.5,
+    color: 'white',
+  },
+  // Toggle Switch
+  toggle: {
+    width: 48,
+    height: 26,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20,
+    position: 'relative',
+  },
+  toggleOn: {
+    backgroundColor: '#38bdf8',
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    position: 'absolute',
+    top: 3,
+    left: 3,
+  },
+  // Unit Selector
+  unitSelector: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    padding: 3,
+    borderRadius: 10,
+  },
+  unitOpt: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  unitOptActive: {
+    backgroundColor: 'white',
+  },
+  unitOptText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  unitOptTextActive: {
+    color: '#0f172a',
+  },
+  // Footer
+  footerInfo: {
+    textAlign: 'center',
+    marginTop: 'auto',
+    marginBottom: 10,
+    opacity: 0.3,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: 'white',
+  },
+});

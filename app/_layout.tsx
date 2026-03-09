@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 
 import { LanguageProvider } from '@/context/LanguageContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
+import { SettingsProvider } from './context/SettingsContext';
 
 function RootLayoutNav() {
   const { isDark } = useTheme();
@@ -15,7 +16,6 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="search" />
-        <Stack.Screen name="weather" />
         <Stack.Screen name="settings" />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -27,7 +27,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <RootLayoutNav />
+        <SettingsProvider>
+          <RootLayoutNav />
+        </SettingsProvider>
       </LanguageProvider>
     </ThemeProvider>
   );
