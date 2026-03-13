@@ -1,16 +1,42 @@
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSettings, useTranslations } from './context/SettingsContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { settings, toggleTemperatureUnit, toggleWindUnit, toggleLanguage, togglePushNotifications, toggleRainAlerts } = useSettings();
+  const { settings, toggleTemperatureUnit, toggleWindUnit, toggleLanguage, togglePushNotifications, toggleRainAlerts, toggleTheme, setNotificationTime } = useSettings();
   const { t } = useTranslations();
   
   // Перевіряємо чи додаток запущений в Expo Go
   const isExpoGo = Constants.appOwnership === 'expo';
+  
+  // Стан для TimePicker
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempTime, setTempTime] = useState(new Date());
+  
+  const handleTimePress = () => {
+    // Встановлюємо поточний час з налаштувань
+    const [hours, minutes] = settings.notificationTime.split(':').map(Number);
+    const currentTime = new Date();
+    currentTime.setHours(hours, minutes);
+    setTempTime(currentTime);
+    setShowTimePicker(true);
+  };
+  
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    
+    if (selectedTime) {
+      const hours = selectedTime.getHours().toString().padStart(2, '0');
+      const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
+      setNotificationTime(timeString);
+    }
+  };
 
   const handleBackPress = () => {
     router.back();
@@ -30,7 +56,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={styles.settingsHeader}>
         <Pressable style={styles.backBtn} onPress={handleBackPress}>
-          <Text style={styles.backText}>{t('back')}</Text>
+          <Ionicons name="arrow-back" size={20} color="white" />
         </Pressable>
         <Text style={styles.headerTitle}>{t('settings')}</Text>
       </View>
@@ -133,11 +159,35 @@ export default function SettingsScreen() {
               <View style={styles.toggleThumb} />
             </Pressable>
           </View>
+          <View style={styles.settingsItem}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>⏰</Text>
+              <Text style={styles.itemText}>{t('notificationTime')}</Text>
+            </View>
+            <Pressable 
+              style={styles.timeSelector}
+              onPress={handleTimePress}
+            >
+              <Text style={styles.timeText}>{settings.notificationTime}</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Додатково */}
         <Text style={styles.sectionLabel}>{t('additional')}</Text>
         <View style={styles.settingsCard}>
+          <View style={styles.settingsItem}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemIcon}>🎨</Text>
+              <Text style={styles.itemText}>{t('theme')}</Text>
+            </View>
+            <Pressable
+              style={[styles.toggle, settings.theme === 'light' && styles.toggleOn]}
+              onPress={toggleTheme}
+            >
+              <View style={styles.toggleThumb} />
+            </Pressable>
+          </View>
           <Pressable style={styles.settingsItem} onPress={handleLanguagePress}>
             <View style={styles.itemInfo}>
               <Text style={styles.itemIcon}>🌐</Text>
@@ -162,6 +212,16 @@ export default function SettingsScreen() {
           <Text style={styles.footerText}>{t('developed')}</Text>
         </View>
       </ScrollView>
+      
+      {/* Time Picker */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={tempTime}
+          mode="time"
+          display="default"
+          onChange={handleTimeChange}
+        />
+      )}
     </View>
   );
 }
@@ -189,10 +249,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backText: {
-    color: 'white',
-    fontSize: 20,
   },
   headerTitle: {
     fontSize: 24,
@@ -249,6 +305,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     opacity: 0.5,
     color: 'white',
+  },
+  // Time Selector
+  timeSelector: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  timeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
   },
   // Toggle Switch
   toggle: {

@@ -8,6 +8,8 @@ interface SettingsState {
   language: 'ua' | 'en';
   pushNotifications: boolean;
   rainAlerts: boolean;
+  theme: 'dark' | 'light';
+  notificationTime: string; // формат "HH:MM"
 }
 
 interface SettingsContextType {
@@ -18,6 +20,8 @@ interface SettingsContextType {
   toggleLanguage: () => void;
   togglePushNotifications: () => void;
   toggleRainAlerts: () => void;
+  toggleTheme: () => void;
+  setNotificationTime: (time: string) => void;
   convertTemperature: (celsius: number) => number;
   getTemperatureUnit: () => string;
   getWindUnit: () => string;
@@ -31,58 +35,70 @@ const defaultSettings: SettingsState = {
   language: 'ua',
   pushNotifications: true,
   rainAlerts: false,
+  theme: 'dark',
+  notificationTime: '10:00',
 };
 
 const translations = {
   ua: {
-    welcome: 'Weather App',
+    welcome: 'raindji',
     tagline: 'Почнемо? Оберіть, як нам знайти прогноз для вас',
     findLocation: 'Знайти мою локацію',
     selectCity: 'Вибрати місто вручну',
     currentLocation: 'Поточне місцезнаходження',
     searchPlaceholder: 'Пошук міста...',
     popularCities: 'Популярні міста',
-    myLocation: 'Моє місцезнаходження',
+    myLocation: 'Моя локація',
     settings: 'Налаштування',
-    back: '←',
+    back: 'Назад',
     temperature: 'Температура',
     wind: 'Вітер',
     humidity: 'Вологість',
-    feelsLike: 'Відчувається',
     pressure: 'Тиск',
-    next24Hours: 'Наступні 24 години',
-    scrollHint: 'Гортайте ⮕',
-    weeklyForecast: 'Прогноз на тиждень',
+    feelsLike: 'Відчувається як',
+    hourly: 'Погодинно',
+    weekly: 'Щотижня',
     units: 'Одиниці вимірювання',
     notifications: 'Сповіщення',
     additional: 'Додатково',
-    pushNotifications: 'Push-повідомлення',
-    rainAlerts: 'Попередження про дощ',
-    language: 'Мова',
-    dataSource: 'Джерело даних',
+    celsius: 'Цельсій',
+    fahrenheit: 'Фаренгейт',
+    kmh: 'км/год',
+    ms: 'м/с',
     ukrainian: 'Українська',
-    english: 'English',
-    openMeteo: 'Open-Meteo',
-    version: 'Weather Pro v2.4.0 (Build 742)',
-    developed: 'Розроблено спеціально для вашого комфорту',
-    loading: 'Завантаження погоди...',
+    english: 'Англійська',
+    pushNotifications: 'Push сповіщення',
+    rainAlerts: 'Попередження про дощ',
+    theme: 'Тема',
+    darkTheme: 'Темна',
+    lightTheme: 'Світла',
+    notificationTime: 'Час сповіщення',
+    loading: 'Завантаження...',
     retry: 'Спробувати знову',
     searchCity: 'Пошук міста',
-    noData: 'No data available',
+    noData: 'Немає даних',
+    next24Hours: 'Наступні 24 години',
+    scrollHint: 'Прокрутити ⮕',
+    weeklyForecast: 'Щотижневий прогноз',
+    language: 'Мова',
+    dataSource: 'Джерело даних',
+    openMeteo: 'Open-Meteo',
+    version: 'Версія',
+    developed: 'Розроблено',
+    weekdays: ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
     weatherDescriptions: {
-      0: 'Ясно', 1: 'Майже ясно', 2: 'Частково хмарно', 3: 'Похмуро',
-      45: 'Туман', 48: 'Туман з інеєм', 51: 'Легка мжичка', 53: 'Помірна мжичка',
-      55: 'Щільна мжичка', 56: 'Легка замерзаюча мжичка', 57: 'Щільна замерзаюча мжичка',
-      61: 'Легкий дощ', 63: 'Помірний дощ', 65: 'Сильний дощ', 66: 'Легкий замерзаючий дощ',
-      67: 'Сильний замерзаючий дощ', 71: 'Легкий сніг', 73: 'Помірний сніг', 75: 'Сильний сніг',
-      77: 'Снігові зерна', 80: 'Легкі зливи', 81: 'Помірні зливи', 82: 'Сильні зливи',
-      85: 'Легкі снігові зливи', 86: 'Сильні снігові зливи', 95: 'Легка гроза',
+      0: 'Ясно', 1: 'Переважно ясно', 2: 'Переважно ясно', 3: 'Хмарно',
+      45: 'Туман', 48: 'Туман з кригою', 51: 'Легкий дощ', 53: 'Помірний дощ',
+      55: 'Сильний дощ', 56: 'Легкий град', 57: 'Сильний град', 61: 'Сильний дощ',
+      63: 'Сильний дощ', 65: 'Сильний дощ', 66: 'Легкий град', 67: 'Сильний град',
+      71: 'Легкий сніг', 73: 'Помірний сніг', 75: 'Сильний сніг', 77: 'Зернистий сніг',
+      80: 'Легкий дощ', 81: 'Помірний дощ', 82: 'Сильний дощ', 85: 'Сильний дощ',
+      95: 'Легка гроза',
       96: 'Гроза з градом', 99: 'Сильна гроза з градом',
     },
-    weekdays: ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
   },
   en: {
-    welcome: 'Weather App',
+    welcome: 'raindji',
     tagline: 'Let\'s start? Choose how we find the forecast for you',
     findLocation: 'Find my location',
     selectCity: 'Select city manually',
@@ -97,36 +113,45 @@ const translations = {
     humidity: 'Humidity',
     feelsLike: 'Feels like',
     pressure: 'Pressure',
+    hourly: 'Hourly',
+    weekly: 'Weekly',
     next24Hours: 'Next 24 hours',
     scrollHint: 'Scroll ⮕',
     weeklyForecast: 'Weekly forecast',
     units: 'Units',
     notifications: 'Notifications',
     additional: 'Additional',
-    pushNotifications: 'Push notifications',
-    rainAlerts: 'Rain alerts',
-    language: 'Language',
-    dataSource: 'Data source',
+    celsius: 'Celsius',
+    fahrenheit: 'Fahrenheit',
+    kmh: 'km/h',
+    ms: 'm/s',
     ukrainian: 'Ukrainian',
     english: 'English',
-    openMeteo: 'Open-Meteo',
-    version: 'Weather Pro v2.4.0 (Build 742)',
-    developed: 'Developed specially for your comfort',
-    loading: 'Loading weather...',
-    retry: 'Try again',
+    pushNotifications: 'Push notifications',
+    rainAlerts: 'Rain alerts',
+    theme: 'Theme',
+    darkTheme: 'Dark',
+    lightTheme: 'Light',
+    notificationTime: 'Notification time',
+    loading: 'Loading...',
+    retry: 'Retry',
     searchCity: 'Search city',
-    noData: 'No data available',
+    noData: 'No data',
+    language: 'Language',
+    dataSource: 'Data source',
+    openMeteo: 'Open-Meteo',
+    version: 'Version',
+    developed: 'Developed',
+    weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     weatherDescriptions: {
       0: 'Clear', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
-      45: 'Fog', 48: 'Fog with depositing rime', 51: 'Light drizzle', 53: 'Moderate drizzle',
-      55: 'Dense drizzle', 56: 'Light freezing drizzle', 57: 'Dense freezing drizzle',
-      61: 'Light rain', 63: 'Moderate rain', 65: 'Heavy rain', 66: 'Light freezing rain',
-      67: 'Heavy freezing rain', 71: 'Light snow', 73: 'Moderate snow', 75: 'Heavy snow',
-      77: 'Snow grains', 80: 'Light showers', 81: 'Moderate showers', 82: 'Heavy showers',
-      85: 'Light snow showers', 86: 'Heavy snow showers', 95: 'Thunderstorm',
-      96: 'Thunderstorm with hail', 99: 'Severe thunderstorm with hail',
+      45: 'Fog', 48: 'Fog with ice', 51: 'Light drizzle', 53: 'Moderate drizzle',
+      55: 'Heavy drizzle', 56: 'Light freezing drizzle', 57: 'Heavy freezing drizzle', 61: 'Light rain',
+      63: 'Moderate rain', 65: 'Heavy rain', 66: 'Light freezing rain', 67: 'Heavy freezing rain',
+      71: 'Light snow', 73: 'Moderate snow', 75: 'Heavy snow', 77: 'Snow grains',
+      80: 'Light showers', 81: 'Moderate showers', 82: 'Heavy showers', 85: 'Heavy showers',
+      95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Severe thunderstorm with hail',
     },
-    weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   },
 };
 
@@ -205,6 +230,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const toggleTheme = () => {
+    updateSettings({
+      theme: settings.theme === 'dark' ? 'light' : 'dark'
+    });
+  };
+
+  const setNotificationTime = (time: string) => {
+    updateSettings({
+      notificationTime: time
+    });
+  };
+
   const convertTemperature = (celsius: number): number => {
     if (settings.temperatureUnit === 'F') {
       return Math.round(celsius * 9/5 + 32);
@@ -246,6 +283,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         toggleLanguage,
         togglePushNotifications,
         toggleRainAlerts,
+        toggleTheme,
+        setNotificationTime,
         convertTemperature,
         getTemperatureUnit,
         getWindUnit,

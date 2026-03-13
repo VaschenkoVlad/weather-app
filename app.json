@@ -4,10 +4,9 @@
     "slug": "weather-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./photo/1.png",
+    "icon": "./assets/raindji.png",
     "scheme": "weatherapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -16,7 +15,6 @@
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./photo/2.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.weatherapp"
     },
@@ -29,13 +27,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./photo/background-1.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#000000"
         }
       ]
     ],

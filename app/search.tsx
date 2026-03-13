@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -77,7 +79,8 @@ export default function SearchScreen() {
   }, []);
 
   const searchCities = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
+    const normalizedQuery = searchQuery.trim();
+    if (!normalizedQuery) {
       setResults([]);
       return;
     }
@@ -86,7 +89,7 @@ export default function SearchScreen() {
     setError(null);
 
     try {
-      const url = `${GEOCODING_BASE}/search?name=${encodeURIComponent(searchQuery)}&count=10&language=uk`;
+      const url = `${GEOCODING_BASE}/search?name=${encodeURIComponent(normalizedQuery)}&count=10&language=uk`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -95,22 +98,14 @@ export default function SearchScreen() {
       }
 
       if (data.results && data.results.length > 0) {
-        // Отримуємо погоду для кожного міста
-        const citiesWithWeather = await Promise.all(
-          data.results.map(async (city: any) => {
-            const weather = await fetchWeatherForCity(city.latitude, city.longitude);
-            return {
-              name: city.name,
-              lat: city.latitude,
-              lon: city.longitude,
-              country: city.country,
-              admin1: city.admin1,
-              temperature: weather?.temperature,
-              weathercode: weather?.weathercode,
-              timezone: weather?.timezone,
-            };
-          })
-        );
+        // Повертаємо тільки текстову інформацію без погодних даних
+        const citiesWithWeather = data.results.map((city: any) => ({
+          name: city.name,
+          lat: city.latitude,
+          lon: city.longitude,
+          country: city.country,
+          admin1: city.admin1,
+        }));
 
         setResults(citiesWithWeather);
       } else {
@@ -123,6 +118,64 @@ export default function SearchScreen() {
       setLoading(false);
     }
   }, [fetchWeatherForCity]);
+
+  const reverseGeocode = useCallback(async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      console.log('Search page: Starting reverse geocoding for:', latitude, longitude);
+      
+      // Використовуємо Open-Meteo Geocoding API як основний метод
+      const url = `${GEOCODING_BASE}/reverse?latitude=${latitude}&longitude=${longitude}&limit=1`;
+      console.log('Search page: Fetching from Open-Meteo:', url);
+      
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        // Пріоритет полів: name > town > village > city > admin1 > county
+        const cityName = result.name || 
+                        result.town || 
+                        result.village || 
+                        result.city || 
+                        result.admin1 || 
+                        result.county;
+        
+        if (cityName) {
+          console.log('Search page: Found city name via Open-Meteo API:', cityName);
+          return cityName;
+        }
+      }
+      
+      // Якщо Open-Meteo не спрацював, пробуємо expo-location
+      try {
+        const locationResults = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (locationResults && locationResults.length > 0) {
+          const location = locationResults[0];
+          // Пріоритет полів: city > town > village > district > subregion > region
+          const cityName = location.city || 
+                          location.town || 
+                          location.village || 
+                          location.district || 
+                          location.subregion || 
+                          location.region ||
+                          location.admin1;
+          
+          if (cityName) {
+            console.log('Search page: Found city name via expo-location:', cityName);
+            return cityName;
+          }
+        }
+      } catch (exploreError) {
+        console.log('Search page: Expo reverse geocoding failed');
+      }
+      
+      console.log('Search page: No city name found, using fallback');
+      return t('currentLocation');
+    } catch (e) {
+      console.error('Search page: Reverse geocoding error:', e);
+      return t('currentLocation');
+    }
+  }, [t]);
 
   const handleFindMyLocation = useCallback(async () => {
     try {
@@ -138,12 +191,21 @@ export default function SearchScreen() {
         return;
       }
 
-      // Отримуємо назву міста через reverse geocoding
-      const reverseUrl = `${GEOCODING_BASE}/reverse?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&limit=1`;
-      const reverseRes = await fetch(reverseUrl);
-      const reverseData = await reverseRes.json();
+      // Отримуємо назву міста через покращений reverse geocoding
+      const cityName = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      console.log('Search page: Final city name:', cityName);
 
-      const cityName = reverseData.results?.[0]?.name || t('currentLocation');
+      // Зберігаємо місто в AsyncStorage
+      try {
+        await AsyncStorage.multiSet([
+          ['savedCityName', cityName],
+          ['savedLatitude', pos.coords.latitude.toString()],
+          ['savedLongitude', pos.coords.longitude.toString()]
+        ]);
+        console.log('City saved from search page:', cityName);
+      } catch (error) {
+        console.error('Error saving city from search page:', error);
+      }
 
       // Переходимо на головний екран погоди з координатами
       router.replace({
@@ -157,7 +219,7 @@ export default function SearchScreen() {
     } catch (e) {
       console.error('Location error:', e);
     }
-  }, [router, t]);
+  }, [router, reverseGeocode]);
 
   const handleCityPress = useCallback((city: SearchResult) => {
     // Переходимо на головний екран погоди з координатами
@@ -207,16 +269,12 @@ export default function SearchScreen() {
             
             if (data.results && data.results.length > 0) {
               const city = data.results[0];
-              const weather = await fetchWeatherForCity(city.latitude, city.longitude);
               return {
                 name: city.name,
                 lat: city.latitude,
                 lon: city.longitude,
                 country: city.country,
                 admin1: city.admin1,
-                temperature: weather?.temperature,
-                weathercode: weather?.weathercode,
-                timezone: weather?.timezone,
               };
             }
             return null;
@@ -239,7 +297,7 @@ export default function SearchScreen() {
       {/* Шапка */}
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={handleBackPress}>
-          <Text style={styles.backText}>{t('back')}</Text>
+          <Ionicons name="arrow-back" size={20} color="white" />
         </Pressable>
         <Text style={styles.headerTitle}>{t('searchCity')}</Text>
         <View style={styles.placeholder} />
@@ -286,23 +344,6 @@ export default function SearchScreen() {
                   {city.admin1 && `${city.admin1}, `}{city.country}
                 </Text>
               </View>
-              <View style={styles.weatherInfo}>
-                {city.temperature !== undefined && city.weathercode !== undefined ? (
-                  <>
-                    <Text style={styles.temperature}>
-                      {convertTemperature(city.temperature)}{getTemperatureUnit()}
-                    </Text>
-                    <Text style={styles.weatherIcon}>
-                      {getWeatherIcon(city.weathercode)}
-                    </Text>
-                    <Text style={styles.localTime}>
-                      {getLocalTime(city.timezone)}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={styles.noWeatherData}>—</Text>
-                )}
-              </View>
             </Pressable>
           ))}
         </ScrollView>
@@ -335,10 +376,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backText: {
-    fontSize: 20,
-    color: 'white',
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -356,7 +393,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
     marginHorizontal: 24,
     marginBottom: 16,
   },
