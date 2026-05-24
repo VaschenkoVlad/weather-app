@@ -44,3 +44,22 @@ app-example
 # generated native folders
 /ios
 /android
+
+# builds & logs
+*.apk
+*.log
+*.zip
+temp_fix.gradle
+
+# IDE
+.idea/
+
+# analysis
+architecture.txt
+bug-reports-list.txt
+swot-analysis.txt
+testing-documentation.txt
+user-flow.txt
+
+# presentations
+Презентація/

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { darkTheme, lightTheme, type AppThemeColors } from '../../constants/themeColors';
 
 interface SettingsState {
   temperatureUnit: 'C' | 'F';
@@ -8,8 +9,9 @@ interface SettingsState {
   language: 'ua' | 'en';
   pushNotifications: boolean;
   rainAlerts: boolean;
+  rainAlertHours: number;
   theme: 'dark' | 'light';
-  notificationTime: string; // формат "HH:MM"
+  notificationTimes: string[];
 }
 
 interface SettingsContextType {
@@ -20,14 +22,20 @@ interface SettingsContextType {
   toggleLanguage: () => void;
   togglePushNotifications: () => void;
   toggleRainAlerts: () => void;
+  setRainAlertHours: (hours: number) => void;
   toggleTheme: () => void;
-  setNotificationTime: (time: string) => void;
+  addNotificationTime: (time: string) => void;
+  removeNotificationTime: (index: number) => void;
   convertTemperature: (celsius: number) => number;
   getTemperatureUnit: () => string;
   getWindUnit: () => string;
+  colors: AppThemeColors;
+  isDark: boolean;
 }
 
 const STORAGE_KEY = 'weather-app-settings';
+
+const RAIN_ALERT_HOURS_OPTIONS = [1, 2, 3, 6, 12, 24];
 
 const defaultSettings: SettingsState = {
   temperatureUnit: 'C',
@@ -35,8 +43,9 @@ const defaultSettings: SettingsState = {
   language: 'ua',
   pushNotifications: true,
   rainAlerts: false,
+  rainAlertHours: 3,
   theme: 'dark',
-  notificationTime: '10:00',
+  notificationTimes: ['10:00'],
 };
 
 const translations = {
@@ -168,7 +177,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     try {
       const storedSettings = await AsyncStorage.getItem(STORAGE_KEY);
       if (storedSettings) {
-        setSettings(JSON.parse(storedSettings));
+        const parsed = JSON.parse(storedSettings);
+        // Міграція: старий notificationTime → notificationTimes[]
+        if (parsed.notificationTime && !parsed.notificationTimes) {
+          parsed.notificationTimes = [parsed.notificationTime];
+          delete parsed.notificationTime;
+        }
+        // Додаємо rainAlertHours якщо немає
+        if (parsed.rainAlertHours === undefined) {
+          parsed.rainAlertHours = 3;
+        }
+        setSettings({ ...defaultSettings, ...parsed });
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -177,7 +196,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const saveSettings = async (newSettings: SettingsState) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+      const toStore = { ...newSettings };
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
     } catch (error) {
       console.error('Error saving settings:', error);
     }
@@ -230,15 +250,29 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const setRainAlertHours = (hours: number) => {
+    updateSettings({
+      rainAlertHours: hours
+    });
+  };
+
   const toggleTheme = () => {
     updateSettings({
       theme: settings.theme === 'dark' ? 'light' : 'dark'
     });
   };
 
-  const setNotificationTime = (time: string) => {
+  const addNotificationTime = (time: string) => {
+    const newTimes = [...settings.notificationTimes, time].sort();
     updateSettings({
-      notificationTime: time
+      notificationTimes: newTimes
+    });
+  };
+
+  const removeNotificationTime = (index: number) => {
+    const newTimes = settings.notificationTimes.filter((_, i) => i !== index);
+    updateSettings({
+      notificationTimes: newTimes.length > 0 ? newTimes : ['10:00']
     });
   };
 
@@ -256,6 +290,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const getWindUnit = (): string => {
     return settings.windUnit === 'ms' ? 'м/с' : 'км/г';
   };
+
+  const colors: AppThemeColors = settings.theme === 'light' ? lightTheme : darkTheme;
+  const isDark = settings.theme === 'dark';
 
   const t = (key: keyof typeof translations.ua) => {
     const value = translations[settings.language][key];
@@ -283,11 +320,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         toggleLanguage,
         togglePushNotifications,
         toggleRainAlerts,
+        setRainAlertHours,
         toggleTheme,
-        setNotificationTime,
+        addNotificationTime,
+        removeNotificationTime,
         convertTemperature,
         getTemperatureUnit,
         getWindUnit,
+        colors,
+        isDark,
       }}
     >
       <SettingsTranslationContext.Provider

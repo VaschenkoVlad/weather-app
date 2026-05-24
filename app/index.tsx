@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GEOCODING_BASE, OPEN_METEO_BASE } from '../constants/server';
+import type { AppThemeColors } from '../constants/themeColors';
 import { useSettings, useTranslations } from './context/SettingsContext';
 
 const Logo = require('../assets/raindji.png');
@@ -60,6 +61,7 @@ interface WeatherData {
     weathercode: number[];
     relativehumidity_2m?: number[];
     pressure_msl?: number[];
+    apparent_temperature?: number[];
   };
   daily?: {
     time: string[];
@@ -68,7 +70,49 @@ interface WeatherData {
     weathercode: number[];
   };
   city?: string;
+  current?: {
+    apparent_temperature: number;
+  };
 }
+
+const FETCH_TIMEOUT = 15000;
+
+const fetchWithTimeout = async (url: string, timeoutMs = FETCH_TIMEOUT) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const CACHE_KEY = 'cached_weather';
+const CACHE_META_KEY = 'cached_weather_meta';
+
+const saveWeatherCache = async (data: WeatherData, lat: string, lon: string) => {
+  try {
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    await AsyncStorage.setItem(CACHE_META_KEY, JSON.stringify({ lat, lon, time: Date.now() }));
+  } catch (e) {
+    console.error('Cache save error:', e);
+  }
+};
+
+const loadWeatherCache = async (lat: string, lon: string): Promise<WeatherData | null> => {
+  try {
+    const meta = await AsyncStorage.getItem(CACHE_META_KEY);
+    if (!meta) return null;
+    const parsed = JSON.parse(meta);
+    if (parsed.lat !== lat || parsed.lon !== lon) return null;
+    if (Date.now() - parsed.time > 30 * 60 * 1000) return null;
+    const data = await AsyncStorage.getItem(CACHE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+};
 
 const weatherIcons: { [key: number]: string } = {
   0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
@@ -89,11 +133,11 @@ function formatTime(dateStr: string): string {
   return date.getHours().toString().padStart(2, '0') + ':00';
 }
 
-function convertWindSpeed(ms: number, unit: 'kmh' | 'ms'): number {
-  if (unit === 'kmh') {
-    return Math.round(ms * 3.6);
+function convertWindSpeed(kmh: number, unit: 'kmh' | 'ms'): number {
+  if (unit === 'ms') {
+    return Math.round(kmh / 3.6);
   }
-  return Math.round(ms);
+  return Math.round(kmh);
 }
 
 export default function WeatherScreen() {
@@ -103,8 +147,10 @@ export default function WeatherScreen() {
   const lon = params.lon as string | undefined;
   const city = params.city as string | undefined;
 
-  const { convertTemperature, getTemperatureUnit, getWindUnit, settings } = useSettings();
+  const { convertTemperature, getTemperatureUnit, getWindUnit, settings, colors } = useSettings();
   const { getWeatherDescription, getWeekdayName, t } = useTranslations();
+
+  const st = useMemo(() => createStyles(colors), [colors]);
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,7 +167,7 @@ export default function WeatherScreen() {
       const url = `${GEOCODING_BASE}/reverse?latitude=${latitude}&longitude=${longitude}&limit=1`;
       console.log('Fetching from Open-Meteo:', url);
       
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url);
       const data = await res.json();
       
       if (data.results && data.results.length > 0) {
@@ -183,9 +229,9 @@ export default function WeatherScreen() {
         finalCityName = await reverseGeocode(parseFloat(latitude), parseFloat(longitude));
       }
 
-      const url = `${OPEN_METEO_BASE}/forecast?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&current_weather=true&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
+      const url = `${OPEN_METEO_BASE}/forecast?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&current_weather=true&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl,apparent_temperature&daily=temperature_2m_max,temperature_2m_min,weathercode&current=apparent_temperature&timezone=auto`;
       
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url);
       const data = await res.json();
       
       console.log('Open-Meteo API response:', data);
@@ -215,18 +261,31 @@ export default function WeatherScreen() {
         current_weather: data.current_weather || undefined,
         hourly: data.hourly || undefined,
         daily: data.daily || undefined,
-        city: finalCityName || undefined
+        city: finalCityName || undefined,
+        current: data.current || undefined,
       };
 
       console.log('Setting weather data with city:', finalCityName);
       setWeather(weatherData);
+      saveWeatherCache(weatherData, latitude, longitude);
     } catch (e: any) {
       console.error('Weather fetch error:', e);
+      const cached = await loadWeatherCache(latitude, longitude);
+      if (cached) {
+        console.log('Using cached weather data');
+        setWeather(cached);
+        return;
+      }
       setError(e?.message || 'Помилка мережі');
     } finally {
       setLoading(false);
     }
   }, [reverseGeocode]);
+
+  // Скидаємо hasFetched при зміні локації
+  useEffect(() => {
+    hasFetched.current = false;
+  }, [lat, lon]);
 
   useEffect(() => {
     if (lat && lon) {
@@ -287,40 +346,22 @@ export default function WeatherScreen() {
     loadSavedCity();
   }, [lat, lon, router]);
 
-  // Запит дозволу на сповіщення (працює і в Expo Go, і в build)
+  // Запит дозволу на сповіщення (один раз при монтуванні)
   useEffect(() => {
-    const requestPermissions = async () => {
-      try {
-        // Перевіряємо чи додаток запущений в Expo Go
-        const isExpoGo = Constants.appOwnership === 'expo';
-        
-        if (isExpoGo) {
-          console.log('Running in Expo Go - requesting local notification permissions only');
-        } else {
-          console.log('Running in build - requesting full notification permissions');
-        }
+    Notifications.requestPermissionsAsync().then(({ status }) => {
+      console.log('Notification permission status:', status);
+    });
+  }, []);
 
-        const { status } = await Notifications.requestPermissionsAsync();
-        if (status !== 'granted') {
-          console.log('Notification permissions not granted');
-        } else {
-          console.log('Notification permissions granted');
-          
-          // Скасовуємо всі існуючі щоденні сповіщення
-          await Notifications.cancelAllScheduledNotificationsAsync();
-          
-          // Розраховуємо час до наступного налаштованого часу
-          const now = new Date();
-          const tomorrow = new Date(now);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          
-          // Отримуємо час з налаштувань
-          const [hours, minutes] = settings.notificationTime.split(':').map(Number);
-          tomorrow.setHours(hours, minutes, 0, 0);
-          
-          const secondsUntilNotification = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
-          
-          // Створюємо щоденне сповіщення на налаштований час (повторюється кожні 24 години = 86400 секунд)
+  // Планування щоденних сповіщень
+  useEffect(() => {
+    const scheduleNotifications = async () => {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      if (!settings.pushNotifications) return;
+
+      try {
+        for (const timeStr of settings.notificationTimes) {
+          const [h, m] = timeStr.split(':').map(Number);
           await Notifications.scheduleNotificationAsync({
             content: {
               title: "Raindji Weather ☁️",
@@ -328,21 +369,20 @@ export default function WeatherScreen() {
               sound: 'default',
             },
             trigger: {
-              seconds: secondsUntilNotification,
-              repeats: true,
-              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              type: Notifications.SchedulableTriggerInputTypes.DAILY,
+              hour: h,
+              minute: m,
             },
           });
-          
-          console.log('Daily notification scheduled for', settings.notificationTime, '(in', secondsUntilNotification, 'seconds)');
+          console.log('Daily notification scheduled for', timeStr);
         }
       } catch (error) {
-        console.error('Error requesting notification permissions:', error);
+        console.error('Error scheduling notifications:', error);
       }
     };
 
-    requestPermissions();
-  }, [settings.notificationTime]);
+    scheduleNotifications();
+  }, [settings.pushNotifications, settings.notificationTimes.join(',')]);
 
   // Функція для миттєвого сповіщення (працює і в Expo Go, і в build)
   const sendInstantNotification = useCallback(async () => {
@@ -432,6 +472,22 @@ export default function WeatherScreen() {
   const windSpeed = weather ? convertWindSpeed(weather.current_weather?.windspeed ?? 0, settings.windUnit) : 0;
   const windDirection = weather ? weather.current_weather?.winddirection : undefined;
   
+  // Відчувається як — з current.apparent_temperature або поточної години
+  const feelsLike = useMemo(() => {
+    if (weather?.current?.apparent_temperature !== undefined) {
+      return convertTemperature(weather.current.apparent_temperature);
+    }
+    if (weather?.hourly?.apparent_temperature && weather.hourly.time) {
+      const now = new Date();
+      const currentHourStr = now.getHours().toString().padStart(2, '0') + ':00';
+      const idx = weather.hourly.time.findIndex(t => t.includes(currentHourStr));
+      if (idx !== -1 && weather.hourly.apparent_temperature[idx] !== undefined) {
+        return convertTemperature(weather.hourly.apparent_temperature[idx]);
+      }
+    }
+    return currentTemp - 2;
+  }, [weather, currentTemp, convertTemperature]);
+
   // Отримуємо вологість та тиск для поточної години вибраного дня
   const getHourlyDataForSelectedDay = () => {
     if (!weather?.hourly?.time) return { humidity: undefined, pressure: undefined };
@@ -599,34 +655,34 @@ export default function WeatherScreen() {
   // Умовні рендери в кінці компонента
   if (shouldShowWelcome) {
     return (
-      <View style={styles.welcomeContainer}>
+      <View style={st.welcomeContainer}>
         {/* Декоративний елемент фону */}
-        <View style={styles.sunGlow} />
+        <View style={st.sunGlow} />
 
-        <View style={styles.welcomeContent}>
-          <Image source={Logo} style={styles.appLogo} resizeMode="contain" />
-          <Text style={styles.appName}>raindji</Text>
-          <Text style={styles.appTagline}>
+        <View style={st.welcomeContent}>
+          <Image source={Logo} style={st.appLogo} resizeMode="contain" />
+          <Text style={st.appName}>raindji</Text>
+          <Text style={st.appTagline}>
             {t('tagline')}
           </Text>
 
-          <View style={styles.btnGroup}>
+          <View style={st.btnGroup}>
             <TouchableOpacity 
-              style={styles.btnPrimary} 
+              style={st.btnPrimary} 
               onPress={handleFindMyLocation}
               activeOpacity={0.8}
             >
-              <Text style={styles.btnIcon}>📍</Text>
-              <Text style={styles.btnText}>{t('findLocation')}</Text>
+              <Text style={st.btnIcon}>📍</Text>
+              <Text style={st.btnText}>{t('findLocation')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={styles.btnSecondary} 
+              style={st.btnSecondary} 
               onPress={handleSearchPress}
               activeOpacity={0.8}
             >
-              <Text style={styles.btnIcon}>🔍</Text>
-              <Text style={styles.btnText}>{t('selectCity')}</Text>
+              <Text style={st.btnIcon}>🔍</Text>
+              <Text style={st.btnText}>{t('selectCity')}</Text>
             </TouchableOpacity>
 
                       </View>
@@ -637,10 +693,10 @@ export default function WeatherScreen() {
 
   if (shouldShowLoading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
+      <View style={st.container}>
+        <View style={st.loadingContainer}>
           <ActivityIndicator size="large" color="#38bdf8" />
-          <Text style={styles.loadingText}>{t('loading')}</Text>
+          <Text style={st.loadingText}>{t('loading')}</Text>
         </View>
       </View>
     );
@@ -648,14 +704,14 @@ export default function WeatherScreen() {
 
   if (shouldShowError) {
     return (
-      <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleFindMyLocation}>
-            <Text style={styles.retryButtonText}>{t('retry')}</Text>
+      <View style={st.container}>
+        <View style={st.errorContainer}>
+          <Text style={st.errorText}>{error}</Text>
+          <TouchableOpacity style={st.retryButton} onPress={handleFindMyLocation}>
+            <Text style={st.retryButtonText}>{t('retry')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearchPress}>
-            <Text style={styles.searchButtonText}>{t('searchCity')}</Text>
+          <TouchableOpacity style={st.searchButton} onPress={handleSearchPress}>
+            <Text style={st.searchButtonText}>{t('searchCity')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -664,14 +720,14 @@ export default function WeatherScreen() {
 
   if (shouldShowNoData) {
     return (
-      <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{t('noData')}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleFindMyLocation}>
-            <Text style={styles.retryButtonText}>{t('findLocation')}</Text>
+      <View style={st.container}>
+        <View style={st.errorContainer}>
+          <Text style={st.errorText}>{t('noData')}</Text>
+          <TouchableOpacity style={st.retryButton} onPress={handleFindMyLocation}>
+            <Text style={st.retryButtonText}>{t('findLocation')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearchPress}>
-            <Text style={styles.searchButtonText}>{t('searchCity')}</Text>
+          <TouchableOpacity style={st.searchButton} onPress={handleSearchPress}>
+            <Text style={st.searchButtonText}>{t('searchCity')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -679,107 +735,107 @@ export default function WeatherScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollWrapper} showsVerticalScrollIndicator={false}>
+    <View style={st.container}>
+      <ScrollView style={st.scrollWrapper} showsVerticalScrollIndicator={false}>
         {/* Шапка */}
-        <View style={styles.topBar}>
-          <View style={styles.locationInfo}>
-            <Text style={styles.locationName}>{weather?.city || t('currentLocation')}</Text>
-            <Text style={styles.locationDate}>{currentDate}</Text>
+        <View style={st.topBar}>
+          <View style={st.locationInfo}>
+            <Text style={st.locationName}>{weather?.city || t('currentLocation')}</Text>
+            <Text style={st.locationDate}>{currentDate}</Text>
           </View>
-          <View style={styles.controls}>
-            <TouchableOpacity style={styles.iconBtn} onPress={handleSearchPress}>
-              <Text style={styles.iconText}>🔍</Text>
+          <View style={st.controls}>
+            <TouchableOpacity style={st.iconBtn} onPress={handleSearchPress}>
+              <Text style={st.iconText}>🔍</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={handleSettingsPress}>
-              <Text style={styles.iconText}>⚙️</Text>
+            <TouchableOpacity style={st.iconBtn} onPress={handleSettingsPress}>
+              <Text style={st.iconText}>⚙️</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Геро-блок (Температура) */}
-        <View style={styles.heroSection}>
-          <Text style={styles.mainTemp}>{selectedDay.temp}{getTemperatureUnit()}</Text>
-          <Text style={styles.weatherStatus}>{selectedDay.description}</Text>
-          <Text style={styles.dayLabel}>
+        <View style={st.heroSection}>
+          <Text style={st.mainTemp}>{selectedDay.temp}{getTemperatureUnit()}</Text>
+          <Text style={st.weatherStatus}>{selectedDay.description}</Text>
+          <Text style={st.dayLabel}>
             {selectedDayIndex === 0 ? 'Today' : getWeekdayName(weather?.daily?.time?.[selectedDayIndex] || '')} · {selectedDayIndex === 0 ? '' : '12:00 forecast'}
           </Text>
         </View>
 
         {/* Метрики */}
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricIcon}>🌬️</Text>
-            <View style={styles.metricInfo}>
-              <Text style={styles.metricLabel}>{t('wind')}</Text>
-              <Text style={styles.metricValue}>{windSpeed} {getWindUnit()}</Text>
+        <View style={st.metricsGrid}>
+          <View style={st.metricCard}>
+            <Text style={st.metricIcon}>🌬️</Text>
+            <View style={st.metricInfo}>
+              <Text style={st.metricLabel}>{t('wind')}</Text>
+              <Text style={st.metricValue}>{windSpeed} {getWindUnit()}</Text>
             </View>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricIcon}>💧</Text>
-            <View style={styles.metricInfo}>
-              <Text style={styles.metricLabel}>{t('humidity')}</Text>
-              <Text style={styles.metricValue}>{humidity !== undefined ? `${humidity}%` : 'undefined'}</Text>
+          <View style={st.metricCard}>
+            <Text style={st.metricIcon}>💧</Text>
+            <View style={st.metricInfo}>
+              <Text style={st.metricLabel}>{t('humidity')}</Text>
+              <Text style={st.metricValue}>{humidity !== undefined ? `${humidity}%` : 'undefined'}</Text>
             </View>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricIcon}>🌡️</Text>
-            <View style={styles.metricInfo}>
-              <Text style={styles.metricLabel}>{t('feelsLike')}</Text>
-              <Text style={styles.metricValue}>{currentTemp - 2}{getTemperatureUnit()}</Text>
+          <View style={st.metricCard}>
+            <Text style={st.metricIcon}>🌡️</Text>
+            <View style={st.metricInfo}>
+              <Text style={st.metricLabel}>{t('feelsLike')}</Text>
+              <Text style={st.metricValue}>{feelsLike}{getTemperatureUnit()}</Text>
             </View>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricIcon}>⏲️</Text>
-            <View style={styles.metricInfo}>
-              <Text style={styles.metricLabel}>{t('pressure')}</Text>
-              <Text style={styles.metricValue}>{pressure !== undefined ? `${pressure} hPa` : 'undefined'}</Text>
+          <View style={st.metricCard}>
+            <Text style={st.metricIcon}>⏲️</Text>
+            <View style={st.metricInfo}>
+              <Text style={st.metricLabel}>{t('pressure')}</Text>
+              <Text style={st.metricValue}>{pressure !== undefined ? `${pressure} hPa` : 'undefined'}</Text>
             </View>
           </View>
         </View>
 
         {/* Погодинний скрол */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('next24Hours')}</Text>
-          <Text style={styles.scrollHint}>{t('scrollHint')}</Text>
+        <View style={st.sectionHeader}>
+          <Text style={st.sectionTitle}>{t('next24Hours')}</Text>
+          <Text style={st.scrollHint}>{t('scrollHint')}</Text>
         </View>
         <ScrollView 
           ref={hourlyScrollRef}
           horizontal 
-          style={styles.hourlyScroll} 
+          style={st.hourlyScroll} 
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.hourlyContent}
+          contentContainerStyle={st.hourlyContent}
         >
           {hourlyData.map((hour, index) => (
-            <View key={index} style={[styles.hourCard, hour.isActive && styles.activeHourCard]}>
-              <Text style={[styles.hourTime, hour.isActive && styles.activeHourText]}>{hour.time}</Text>
-              <Text style={[styles.hourIcon, hour.isActive && styles.activeHourText]}>{hour.icon}</Text>
-              <Text style={[styles.hourTemp, hour.isActive && styles.activeHourText]}>{hour.temp}{getTemperatureUnit()}</Text>
+            <View key={index} style={[st.hourCard, hour.isActive && st.activeHourCard]}>
+              <Text style={[st.hourTime, hour.isActive && st.activeHourText]}>{hour.time}</Text>
+              <Text style={[st.hourIcon, hour.isActive && st.activeHourText]}>{hour.icon}</Text>
+              <Text style={[st.hourTemp, hour.isActive && st.activeHourText]}>{hour.temp}{getTemperatureUnit()}</Text>
             </View>
           ))}
         </ScrollView>
 
         {/* Список днів */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('weeklyForecast')}</Text>
+        <View style={st.sectionHeader}>
+          <Text style={st.sectionTitle}>{t('weeklyForecast')}</Text>
         </View>
-        <View style={styles.weeklyList}>
+        <View style={st.weeklyList}>
           {weeklyData.map((day, index) => (
             <TouchableOpacity 
               key={index} 
-              style={[styles.dayButton, selectedDayIndex === day.index && styles.selectedDayButton]}
+              style={[st.dayButton, selectedDayIndex === day.index && st.selectedDayButton]}
               onPress={() => selectDay(day.index)}
             >
-              <Text style={[styles.dayName, selectedDayIndex === day.index && styles.selectedDayText]}>{day.dayName}</Text>
-              <Text style={[styles.dayIcon, selectedDayIndex === day.index && styles.selectedDayText]}>{day.icon}</Text>
-              <View style={styles.dayRange}>
-                <View style={styles.tempRange}>
-                  <Text style={[styles.tempLabel, selectedDayIndex === day.index && styles.selectedDayText]}>↑</Text>
-                  <Text style={[styles.dayMaxTemp, selectedDayIndex === day.index && styles.selectedDayText]}>{day.maxTemp}{getTemperatureUnit()}</Text>
+              <Text style={[st.dayName, selectedDayIndex === day.index && st.selectedDayText]}>{day.dayName}</Text>
+              <Text style={[st.dayIcon, selectedDayIndex === day.index && st.selectedDayText]}>{day.icon}</Text>
+              <View style={st.dayRange}>
+                <View style={st.tempRange}>
+                  <Text style={[st.tempLabel, selectedDayIndex === day.index && st.selectedDayText]}>↑</Text>
+                  <Text style={[st.dayMaxTemp, selectedDayIndex === day.index && st.selectedDayText]}>{day.maxTemp}{getTemperatureUnit()}</Text>
                 </View>
-                <View style={styles.tempRange}>
-                  <Text style={[styles.tempLabel, selectedDayIndex === day.index && styles.selectedDayText]}>↓</Text>
-                  <Text style={[styles.dayMinTemp, selectedDayIndex === day.index && styles.selectedDayText]}>{day.minTemp}{getTemperatureUnit()}</Text>
+                <View style={st.tempRange}>
+                  <Text style={[st.tempLabel, selectedDayIndex === day.index && st.selectedDayText]}>↓</Text>
+                  <Text style={[st.dayMinTemp, selectedDayIndex === day.index && st.selectedDayText]}>{day.minTemp}{getTemperatureUnit()}</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -790,15 +846,16 @@ export default function WeatherScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppThemeColors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.screenBg,
   },
   // Welcome styles
   welcomeContainer: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.screenBg,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
@@ -812,7 +869,7 @@ const styles = StyleSheet.create({
     height: 300,
     backgroundColor: 'transparent',
     borderRadius: 150,
-    shadowColor: '#38bdf8',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 100,
@@ -833,7 +890,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 5,
     letterSpacing: -1,
-    color: 'white',
+    color: colors.text,
   },
   appTagline: {
     fontSize: 15,
@@ -841,7 +898,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 22,
     textAlign: 'center',
-    color: 'white',
+    color: colors.text,
   },
   btnGroup: {
     flexDirection: 'column',
@@ -849,23 +906,23 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   btnPrimary: {
-    backgroundColor: '#38bdf8',
+    backgroundColor: colors.accent,
     padding: 18,
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    shadowColor: '#38bdf8',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 8,
   },
   btnSecondary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     padding: 18,
     borderRadius: 20,
     flexDirection: 'row',
@@ -879,7 +936,7 @@ const styles = StyleSheet.create({
   btnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'white',
+    color: colors.text,
   },
   btnNotification: {
     backgroundColor: '#10b981',
@@ -907,7 +964,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#94a3b8',
+    color: colors.textMuted,
     fontSize: 16,
   },
   errorContainer: {
@@ -929,18 +986,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   retryButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   searchButton: {
-    backgroundColor: '#64748b',
+    backgroundColor: colors.textMuted,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 10,
   },
   searchButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -958,11 +1015,11 @@ const styles = StyleSheet.create({
   locationName: {
     fontSize: 24,
     fontWeight: '700',
-    color: 'white',
+    color: colors.text,
   },
   locationDate: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginTop: 4,
   },
   controls: {
@@ -970,9 +1027,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     padding: 12,
     borderRadius: 14,
   },
@@ -986,17 +1043,17 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginTop: 8,
     fontWeight: '500',
   },
   mainTemp: {
     fontSize: 100,
     fontWeight: '300',
-    color: 'white',
+    color: colors.text,
   },
   weatherStatus: {
-    color: '#38bdf8',
+    color: colors.accent,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
@@ -1011,9 +1068,9 @@ const styles = StyleSheet.create({
     marginVertical: 25,
   },
   metricCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     padding: 16,
     borderRadius: 24,
     flexDirection: 'row',
@@ -1029,14 +1086,14 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: colors.textMuted,
     textTransform: 'uppercase',
     fontWeight: '700',
   },
   metricValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: 'white',
+    color: colors.text,
   },
   // Секції
   sectionHeader: {
@@ -1049,11 +1106,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'white',
+    color: colors.text,
   },
   scrollHint: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   // Погодинний скрол
   hourlyScroll: {
@@ -1064,24 +1121,24 @@ const styles = StyleSheet.create({
   },
   hourCard: {
     minWidth: 65,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     paddingVertical: 15,
     paddingHorizontal: 10,
     borderRadius: 20,
     alignItems: 'center',
   },
   activeHourCard: {
-    backgroundColor: '#38bdf8',
-    borderColor: '#38bdf8',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   activeHourText: {
-    color: '#000000',
+    color: colors.hourActiveText,
   },
   hourTime: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginBottom: 8,
   },
   hourIcon: {
@@ -1091,7 +1148,7 @@ const styles = StyleSheet.create({
   hourTemp: {
     fontSize: 15,
     fontWeight: '700',
-    color: 'white',
+    color: colors.text,
   },
   // Список днів
   weeklyList: {
@@ -1100,9 +1157,9 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   dayButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     padding: 18,
     borderRadius: 24,
     flexDirection: 'row',
@@ -1111,7 +1168,7 @@ const styles = StyleSheet.create({
   },
   dayName: {
     fontWeight: '600',
-    color: 'white',
+    color: colors.text,
     width: 45,
   },
   dayIcon: {
@@ -1125,16 +1182,16 @@ const styles = StyleSheet.create({
   dayMaxTemp: {
     fontWeight: '700',
     fontSize: 14,
-    color: 'white',
+    color: colors.text,
   },
   dayMinTemp: {
     fontWeight: '400',
     fontSize: 14,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   selectedDayButton: {
-    backgroundColor: '#38bdf8',
-    borderColor: '#38bdf8',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   tempRange: {
     flexDirection: 'row',
@@ -1143,10 +1200,11 @@ const styles = StyleSheet.create({
   },
   tempLabel: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
     fontWeight: '600',
   },
   selectedDayText: {
-    color: '#000000',
+    color: colors.hourActiveText,
   },
 });
+}

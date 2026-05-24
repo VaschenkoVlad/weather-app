@@ -3,42 +3,36 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { LanguageProvider } from '@/context/LanguageContext';
-import { ThemeProvider, useTheme } from '@/context/ThemeContext';
-import { SettingsProvider } from './context/SettingsContext';
+import { SettingsProvider, useSettings } from './context/SettingsContext';
 
 // Перевірка чи додаток запущений в Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
 
-// Налаштування Notification Handler (працює і в Expo Go, і в build)
-if (!isExpoGo) {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-} else {
-  // Для Expo Go налаштовуємо тільки локальні сповіщення
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-}
+// Налаштування Notification Handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 function RootLayoutNav() {
-  const { isDark } = useTheme();
+  const { isDark } = useSettings();
   const navTheme = isDark ? DarkTheme : DefaultTheme;
+
+  useEffect(() => {
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'Raindji Weather',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+    }).catch(() => {});
+  }, []);
 
   return (
     <NavThemeProvider value={navTheme}>
@@ -54,12 +48,8 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <SettingsProvider>
-          <RootLayoutNav />
-        </SettingsProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <SettingsProvider>
+      <RootLayoutNav />
+    </SettingsProvider>
   );
 }

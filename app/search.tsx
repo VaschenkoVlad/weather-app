@@ -2,10 +2,24 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { GEOCODING_BASE, OPEN_METEO_BASE } from '../constants/server';
+import type { AppThemeColors } from '../constants/themeColors';
 import { useSettings, useTranslations } from './context/SettingsContext';
+
+const FETCH_TIMEOUT = 10000;
+
+const fetchWithTimeout = async (url: string, timeoutMs = FETCH_TIMEOUT) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 interface SearchResult {
   name: string;
@@ -49,8 +63,10 @@ function getLocalTime(timezone?: string): string {
 
 export default function SearchScreen() {
   const router = useRouter();
-  const { convertTemperature, getTemperatureUnit } = useSettings();
+  const { convertTemperature, getTemperatureUnit, colors } = useSettings();
   const { getWeatherDescription, t } = useTranslations();
+
+  const st = useMemo(() => createStyles(colors), [colors]);
   
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -61,7 +77,7 @@ export default function SearchScreen() {
   const fetchWeatherForCity = useCallback(async (lat: number, lon: number) => {
     try {
       const url = `${OPEN_METEO_BASE}/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url);
       const data = await res.json();
       
       if (res.ok && data.current_weather) {
@@ -98,14 +114,21 @@ export default function SearchScreen() {
       }
 
       if (data.results && data.results.length > 0) {
-        // Повертаємо тільки текстову інформацію без погодних даних
-        const citiesWithWeather = data.results.map((city: any) => ({
-          name: city.name,
-          lat: city.latitude,
-          lon: city.longitude,
-          country: city.country,
-          admin1: city.admin1,
-        }));
+        const citiesWithWeather = await Promise.all(
+          data.results.map(async (city: any) => {
+            const weather = await fetchWeatherForCity(city.latitude, city.longitude);
+            return {
+              name: city.name,
+              lat: city.latitude,
+              lon: city.longitude,
+              country: city.country,
+              admin1: city.admin1,
+              temperature: weather?.temperature,
+              weathercode: weather?.weathercode,
+              timezone: weather?.timezone,
+            };
+          })
+        );
 
         setResults(citiesWithWeather);
       } else {
@@ -127,7 +150,7 @@ export default function SearchScreen() {
       const url = `${GEOCODING_BASE}/reverse?latitude=${latitude}&longitude=${longitude}&limit=1`;
       console.log('Search page: Fetching from Open-Meteo:', url);
       
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url);
       const data = await res.json();
       
       if (data.results && data.results.length > 0) {
@@ -264,17 +287,21 @@ export default function SearchScreen() {
         const citiesWithWeather = await Promise.all(
           POPULAR_CITIES.map(async (cityName) => {
             const url = `${GEOCODING_BASE}/search?name=${encodeURIComponent(cityName)}&count=1&language=uk`;
-            const res = await fetch(url);
+            const res = await fetchWithTimeout(url);
             const data = await res.json();
             
             if (data.results && data.results.length > 0) {
               const city = data.results[0];
+              const weather = await fetchWeatherForCity(city.latitude, city.longitude);
               return {
                 name: city.name,
                 lat: city.latitude,
                 lon: city.longitude,
                 country: city.country,
                 admin1: city.admin1,
+                temperature: weather?.temperature,
+                weathercode: weather?.weathercode,
+                timezone: weather?.timezone,
               };
             }
             return null;
@@ -293,21 +320,21 @@ export default function SearchScreen() {
   }, [fetchWeatherForCity]);
 
   return (
-    <View style={styles.container}>
+    <View style={st.container}>
       {/* Шапка */}
-      <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={handleBackPress}>
+      <View style={st.header}>
+        <Pressable style={st.backBtn} onPress={handleBackPress}>
           <Ionicons name="arrow-back" size={20} color="white" />
         </Pressable>
-        <Text style={styles.headerTitle}>{t('searchCity')}</Text>
-        <View style={styles.placeholder} />
+        <Text style={st.headerTitle}>{t('searchCity')}</Text>
+        <View style={st.placeholder} />
       </View>
 
       {/* Пошуковий рядок */}
-      <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
+      <View style={st.searchContainer}>
+        <Text style={st.searchIcon}>🔍</Text>
         <TextInput
-          style={styles.searchInput}
+          style={st.searchInput}
           placeholder={t('searchPlaceholder')}
           placeholderTextColor="#64748b"
           value={query}
@@ -316,34 +343,41 @@ export default function SearchScreen() {
       </View>
 
       {/* Кнопка "Моє місцезнаходження" */}
-      <Pressable style={styles.locationBtn} onPress={handleFindMyLocation}>
-        <Text style={styles.locationIcon}>📍</Text>
-        <Text style={styles.locationText}>{t('myLocation')}</Text>
+      <Pressable style={st.locationBtn} onPress={handleFindMyLocation}>
+        <Text style={st.locationIcon}>📍</Text>
+        <Text style={st.locationText}>{t('myLocation')}</Text>
       </Pressable>
 
       {/* Популярні міста */}
-      <Text style={styles.sectionTitle}>{t('popularCities')}</Text>
+      <Text style={st.sectionTitle}>{t('popularCities')}</Text>
 
       {/* Результати пошуку */}
       {loading ? (
-        <View style={styles.loadingContainer}>
+        <View style={st.loadingContainer}>
           <ActivityIndicator size="small" color="#38bdf8" />
-          <Text style={styles.loadingText}>Пошук...</Text>
+          <Text style={st.loadingText}>Пошук...</Text>
         </View>
       ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={st.errorContainer}>
+          <Text style={st.errorText}>{error}</Text>
         </View>
       ) : (
-        <ScrollView style={styles.resultsList} showsVerticalScrollIndicator={false}>
+        <ScrollView style={st.resultsList} showsVerticalScrollIndicator={false}>
           {results.map((city, index) => (
-            <Pressable key={index} style={styles.cityCard} onPress={() => handleCityPress(city)}>
-              <View style={styles.cityInfo}>
-                <Text style={styles.cityName}>{city.name}</Text>
-                <Text style={styles.cityDetails}>
+            <Pressable key={index} style={st.cityCard} onPress={() => handleCityPress(city)}>
+              <View style={st.cityInfo}>
+                <Text style={st.cityName}>{city.name}</Text>
+                <Text style={st.cityDetails}>
                   {city.admin1 && `${city.admin1}, `}{city.country}
                 </Text>
               </View>
+              {city.temperature !== undefined && (
+                <View style={st.weatherInfo}>
+                  <Text style={st.temperature}>{convertTemperature(city.temperature)}{getTemperatureUnit()}</Text>
+                  <Text style={st.weatherIcon}>{getWeatherIcon(city.weathercode ?? 0)}</Text>
+                  <Text style={st.localTime}>{getLocalTime(city.timezone)}</Text>
+                </View>
+              )}
             </Pressable>
           ))}
         </ScrollView>
@@ -352,10 +386,11 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppThemeColors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.screenBg,
   },
   // Шапка
   header: {
@@ -370,16 +405,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: 'white',
+    color: colors.text,
   },
   placeholder: {
     width: 44,
@@ -388,9 +423,9 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -404,13 +439,13 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: 'white',
+    color: colors.text,
   },
   // Кнопка локації
   locationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#38bdf8',
+    backgroundColor: colors.accent,
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -424,13 +459,13 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.hourActiveText,
   },
   // Секції
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'white',
+    color: colors.text,
     marginHorizontal: 24,
     marginBottom: 16,
   },
@@ -443,7 +478,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 8,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   errorContainer: {
     padding: 20,
@@ -460,9 +495,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
@@ -473,12 +508,12 @@ const styles = StyleSheet.create({
   cityName: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
+    color: colors.text,
     marginBottom: 4,
   },
   cityDetails: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   weatherInfo: {
     alignItems: 'flex-end',
@@ -486,7 +521,7 @@ const styles = StyleSheet.create({
   temperature: {
     fontSize: 18,
     fontWeight: '700',
-    color: 'white',
+    color: colors.text,
     marginBottom: 4,
   },
   weatherIcon: {
@@ -495,10 +530,11 @@ const styles = StyleSheet.create({
   },
   localTime: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   noWeatherData: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
 });
+}
