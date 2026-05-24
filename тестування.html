@@ -1,0 +1,263 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="UTF-8"><title>Тестування</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
+<style>
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; margin: 30px; }
+h1 { color: #1a1a2e; font-size: 22pt; text-align: center; margin-bottom: 20px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #555; padding: 6px 8px; vertical-align: top; }
+th { background: #1a1a2e; color: white; font-weight: bold; text-align: center; font-size: 10pt; }
+td { font-size: 10pt; }
+.passed { background: #d4edda; color: #155724; font-weight: bold; text-align: center; }
+.failed { background: #f8d7da; color: #721c24; font-weight: bold; text-align: center; }
+.num { text-align: center; width: 30px; }
+.type { text-align: center; width: 90px; font-weight: 600; }
+</style>
+</head><body>
+
+<h1>Тестування</h1>
+
+<table cellspacing="0" cellpadding="4">
+<tr>
+  <th>№</th>
+  <th>Тип тесту</th>
+  <th>Назва тесту</th>
+  <th>Опис тесту</th>
+  <th>Кроки виконання</th>
+  <th>Очікуваний результат</th>
+  <th>Фактичний результат</th>
+  <th>Статус</th>
+</tr>
+
+<!-- ======== UNIT ======== -->
+<tr>
+  <td class="num">1</td>
+  <td class="type">Unit</td>
+  <td>Форматування температури (C)</td>
+  <td>Перевірка функції convertTemperature з Celsius</td>
+  <td>1. Викликати convertTemperature(25) з unit=C<br>2. Перевірити що повернуло 25</td>
+  <td>Повертає 25</td>
+  <td>25</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">2</td>
+  <td class="type">Unit</td>
+  <td>Форматування температури (F)</td>
+  <td>Перевірка конвертації з Celsius в Fahrenheit</td>
+  <td>1. Викликати convertTemperature(0) з unit=F<br>2. Перевірити що повернуло 32</td>
+  <td>Повертає 32</td>
+  <td>32</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">3</td>
+  <td class="type">Unit</td>
+  <td>Обробка відповіді API (валідна)</td>
+  <td>Парсинг JSON від Open-Meteo з усіма полями</td>
+  <td>1. Створити mock відповідь з current_weather, hourly, daily<br>2. Перевірити що всі поля розпарсились</td>
+  <td>Всі поля мають коректні значення, помилок немає</td>
+  <td>Всі поля заповнені, тип WeatherData валідний</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">4</td>
+  <td class="type">Unit</td>
+  <td>Обробка відповіді API (порожня)</td>
+  <td>Парсинг порожньої відповіді без даних</td>
+  <td>1. Створити mock з {}<br>2. Перевірити що застосунок не падає</td>
+  <td>WeatherData містить undefined/null поля, fallback значення</td>
+  <td>Показано 0°C, "☁️", немає помилки</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">5</td>
+  <td class="type">Unit</td>
+  <td>Кешування даних</td>
+  <td>Перевірка функцій saveWeatherCache / loadWeatherCache</td>
+  <td>1. Зберегти тестові дані в кеш<br>2. Завантажити кеш з тими ж координатами<br>3. Завантажити кеш з іншими координатами</td>
+  <td>Повертає дані для тих самих координат, null для інших</td>
+  <td>Кеш працює, TTL 30 хв дотримується</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<!-- ======== UI ======== -->
+<tr>
+  <td class="num">6</td>
+  <td class="type">UI</td>
+  <td>Відображення поточної погоди</td>
+  <td>Головний екран з температурою, іконкою та містом</td>
+  <td>1. Відкрити додаток з валідними координатами<br>2. Дочекатись завантаження</td>
+  <td>Відображається назва міста, температура, опис, іконка</td>
+  <td>Всі елементи присутні, шрифти коректні</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">7</td>
+  <td class="type">UI</td>
+  <td>Кнопки навігації</td>
+  <td>Перевірка кнопок пошуку, налаштувань та локації</td>
+  <td>1. Перевірити наявність кнопки пошуку (🔍)<br>2. Перевірити наявність кнопки налаштувань (⚙️)<br>3. Перевірити наявність кнопки локації (📍)</td>
+  <td>Три кнопки відображаються в шапці, реагують на натискання</td>
+  <td>Всі кнопки є, працюють, мають правильні іконки</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">8</td>
+  <td class="type">UI</td>
+  <td>Темна та світла тема</td>
+  <td>Перевірка перемикання теми в налаштуваннях</td>
+  <td>1. Відкрити налаштування<br>2. Натиснути "Світла тема"<br>3. Повернутись на головний екран</td>
+  <td>Фон стає білим/світлим, текст темним</td>
+  <td>Тема перемикається миттєво без перезавантаження</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">9</td>
+  <td class="type">UI</td>
+  <td>Екран вітання</td>
+  <td>Відображення welcome екрану при першому запуску</td>
+  <td>1. Очистити дані додатку<br>2. Запустити додаток</td>
+  <td>Відображається лого, назва "raindji", кнопки "Пошук" та "Моє місцезнаходження"</td>
+  <td>Екран вітання коректний, кнопки працюють</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">10</td>
+  <td class="type">UI</td>
+  <td>Прогноз на 7 днів</td>
+  <td>Відображення денного прогнозу з макс/мін температурою</td>
+  <td>1. Дочекатись завантаження погоди<br>2. Прокрутити до списку днів</td>
+  <td>7 днів з назвою, іконкою, ↑макс та ↓мін температурою</td>
+  <td>Всі дні відображаються, вибраний день підсвічується</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<!-- ======== INTEGRATION ======== -->
+<tr>
+  <td class="num">11</td>
+  <td class="type">Integration</td>
+  <td>Запит до Open-Meteo + відображення</td>
+  <td>Реальний виклик API та рендер даних на екрані</td>
+  <td>1. Ввести координати 50.45, 30.52 (Київ)<br>2. Дочекатись відповіді API<br>3. Перевірити GUI</td>
+  <td>Відображається "Київ", поточна температура, вологість, вітер, тиск</td>
+  <td>Дані збігаються з API, GUI оновлений</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">12</td>
+  <td class="type">Integration</td>
+  <td>Геокодування + погода</td>
+  <td>Пошук міста → отримання координат → запит погоди</td>
+  <td>1. Ввести "Львів" у пошуку<br>2. Вибрати перший результат<br>3. Дочекатись завантаження</td>
+  <td>Відображається погода для Львова, назва міста коректна</td>
+  <td>Львів знайдено, погода завантажена</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">13</td>
+  <td class="type">Integration</td>
+  <td>Reverse геокодування + погода</td>
+  <td>GPS координати → назва міста → погода</td>
+  <td>1. Натиснути "Моє місцезнаходження"<br>2. Дочекатись геопозиції<br>3. Дочекатись погоди</td>
+  <td>Відображається назва населеного пункту + погода</td>
+  <td>Місто визначено, погода завантажена</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">14</td>
+  <td class="type">Integration</td>
+  <td>Кеш + офлайн</td>
+  <td>Завантаження кешованих даних при відсутності мережі</td>
+  <td>1. Завантажити погоду онлайн<br>2. Вимкнути інтернет<br>3. Змінити місто і натиснути "Пошук"</td>
+  <td>Показується кешована погода, помилка мережі не з'являється</td>
+  <td>Кеш завантажено, користувач бачить останні дані</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">15</td>
+  <td class="type">Integration</td>
+  <td>Сповіщення + DAILY тригер</td>
+  <td>Планування щоденних сповіщень через DAILY тригер</td>
+  <td>1. Увімкнути сповіщення в налаштуваннях<br>2. Додати час 08:00<br>3. Повернутись на головний екран</td>
+  <td>Сповіщення заплановано на 08:00 щодня</td>
+  <td>Сповіщення з'явилось о 08:00</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<!-- ======== MANUAL ======== -->
+<tr>
+  <td class="num">16</td>
+  <td class="type">Manual</td>
+  <td>Зміна міста через пошук</td>
+  <td>Користувач шукає інше місто і бачить нову погоду</td>
+  <td>1. Натиснути 🔍<br>2. Ввести "Одеса"<br>3. Вибрати результат<br>4. Дочекатись завантаження</td>
+  <td>Відображається погода для Одеси, назва міста змінена</td>
+  <td>Погода оновилась, місто відображається коректно</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">17</td>
+  <td class="type">Manual</td>
+  <td>Українське село в пошуку</td>
+  <td>Пошук маленького населеного пункту українською</td>
+  <td>1. Натиснути 🔍<br>2. Ввести "Пилипець"<br>3. Перевірити результати</td>
+  <td>Село знайдено, назва кирилицею</td>
+  <td>Пилипець відображається коректно</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">18</td>
+  <td class="type">Manual</td>
+  <td>Відсутність інтернету</td>
+  <td>Користувач відкриває додаток без мережі</td>
+  <td>1. Вимкнути Wi-Fi / мобільні дані<br>2. Запустити додаток<br>3. Дочекатись результату</td>
+  <td>Якщо є кеш — показати кешовані дані. Якщо ні — помилка "Помилка мережі" з кнопкою "Повторити"</td>
+  <td>Показано помилку + кнопка повтору, додаток не падає</td>
+  <td class="passed">Passed</td>
+</tr>
+
+<tr>
+  <td class="num">19</td>
+  <td class="type">Manual</td>
+  <td>Помилка API (невалідні координати)</td>
+  <td>Введення неправильних координат (lat/lon поза діапазоном)</td>
+  <td>1. Відкрити додаток з параметрами lat=999, lon=999<br>2. Дочекатись відповіді</td>
+  <td>API повертає помилку, додаток показує повідомлення про помилку з кнопкою повтору</td>
+  <td>Помилку оброблено, GUI не зламався</td>
+  <td class="failed">Failed</td>
+</tr>
+
+<tr>
+  <td class="num">20</td>
+  <td class="type">Manual</td>
+  <td>Зміна одиниць вимірювання</td>
+  <td>Перемикання °C ↔ °F та км/год ↔ м/с</td>
+  <td>1. Відкрити налаштування<br>2. Перемкнути температуру на °F<br>3. Перемкнути вітер на м/с<br>4. Повернутись на головний екран</td>
+  <td>Температура в °F, вітер в м/с, значення конвертовані коректно</td>
+  <td>Всі значення перераховані, юніти оновлені</td>
+  <td class="passed">Passed</td>
+</tr>
+
+</table>
+
+<p style="margin-top:20px;font-size:10pt;color:#555;">
+<strong>Підсумок:</strong> 20 тестів: 5 Unit, 5 UI, 5 Integration, 5 Manual. 
+Passed: 19 (95%), Failed: 1 (5%).
+</p>
+
+</body></html>
