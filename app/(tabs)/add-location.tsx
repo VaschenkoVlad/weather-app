@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
+    FlatList,
     Image,
     ImageBackground,
     Platform,
@@ -13,9 +14,45 @@ import {
     View,
 } from 'react-native';
 
+import { geocodeCity, GeoResult } from '../../services/weather';
+import { useLocation } from '../../constants/location-context';
+
 export default function AddLocationScreen() {
   const [searchText, setSearchText] = useState('');
+  const [results, setResults] = useState<GeoResult[]>([]);
+  const [status, setStatus] = useState('');
   const router = useRouter();
+  const { setLocation } = useLocation();
+
+  const handleSearch = useCallback(async (text: string) => {
+    setSearchText(text);
+    if (text.trim().length < 2) {
+      setResults([]);
+      setStatus('');
+      return;
+    }
+    setStatus('Searching...');
+    try {
+      const data = await geocodeCity(text);
+      setResults(data);
+      setStatus(data.length === 0 ? 'no location found.' : '');
+    } catch {
+      setStatus('Error searching');
+    }
+  }, []);
+
+  function selectLocation(item: GeoResult) {
+    const parts = item.display_name.split(',');
+    const city = parts[0];
+    const country = parts.length > 1 ? parts[parts.length - 1].trim() : '';
+    setLocation({
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      city,
+      country,
+    });
+    router.back();
+  }
 
   return (
     <ImageBackground
@@ -41,11 +78,24 @@ export default function AddLocationScreen() {
               placeholder="Type a city, street or place"
               placeholderTextColor="#5ca8eb"
               value={searchText}
-              onChangeText={setSearchText}
+              onChangeText={handleSearch}
             />
           </View>
 
-          <Text style={styles.statusText}>no location found.</Text>
+          {status ? (
+            <Text style={styles.statusText}>{status}</Text>
+          ) : null}
+
+          <FlatList
+            data={results}
+            keyExtractor={(_, i) => String(i)}
+            style={styles.resultsList}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.resultItem} onPress={() => selectLocation(item)}>
+                <Text style={styles.resultText}>{item.display_name}</Text>
+              </TouchableOpacity>
+            )}
+          />
         </View>
       </SafeAreaView>
     </ImageBackground>
@@ -109,6 +159,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginLeft: 15,
     color: '#42a5f5',
+    fontSize: 14,
+  },
+  resultsList: {
+    marginTop: 10,
+    maxHeight: 400,
+  },
+  resultItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 8,
+  },
+  resultText: {
+    color: '#1565c0',
     fontSize: 14,
   },
 });

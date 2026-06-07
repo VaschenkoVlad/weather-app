@@ -1,8 +1,21 @@
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { useLocation } from '@/constants/location-context';
+import { useCurrentLocation } from '@/hooks/use-current-location';
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { location, setLocation } = useLocation();
+  const { getLocation, loading: gpsLoading, error: gpsError } = useCurrentLocation();
+
+  async function handleGPS() {
+    const loc = await getLocation();
+    if (loc) {
+      setLocation(loc);
+      router.back();
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -13,13 +26,20 @@ export default function SearchScreen() {
 
       {/* Location card */}
       <View style={styles.locationCard}>
-        <Text style={styles.city}>New York</Text>
-        <Text style={styles.country}>USA</Text>
+        <Text style={styles.city}>{location.city}</Text>
+        <Text style={styles.country}>{location.country}</Text>
       </View>
 
+      {/* GPS error */}
+      {gpsError ? <Text style={styles.gpsError}>{gpsError}</Text> : null}
+
       {/* Bottom buttons */}
-      <Pressable style={styles.gpsBtn}>
-        <Text style={styles.gpsIcon}>📍</Text>
+      <Pressable style={styles.gpsBtn} onPress={handleGPS} disabled={gpsLoading}>
+        {gpsLoading ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.gpsIcon}>📍</Text>
+        )}
       </Pressable>
 
       <Pressable style={styles.addBtn} onPress={() => router.push('/(tabs)/add-location')} accessibilityLabel="Add location">
@@ -82,6 +102,12 @@ const styles = StyleSheet.create({
   gpsIcon: {
     fontSize: 22,
     color: '#fff',
+  },
+  gpsError: {
+    marginTop: 10,
+    color: '#d32f2f',
+    fontSize: 13,
+    textAlign: 'center',
   },
   addBtn: {
     position: 'absolute',

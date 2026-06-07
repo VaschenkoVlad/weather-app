@@ -13,7 +13,13 @@ import {
     View,
 } from 'react-native';
 
-const SETTINGS_DATA = [
+interface SettingsItem {
+  id: string;
+  title: string;
+  icon: number;
+}
+
+const SETTINGS_DATA: SettingsItem[] = [
   { id: '1', title: 'Units', icon: require('../../assets/images/unita.png') },
   { id: '2', title: 'Hour format', icon: require('../../assets/images/hour.png') },
   { id: '3', title: 'Language', icon: require('../../assets/images/language.png') },
@@ -26,7 +32,7 @@ const SETTINGS_DATA = [
 export default function SettingsScreen() {
   const router = useRouter();
 
-  const renderItem = ({ item }) => (
+  const renderItem = ({ item }: { item: SettingsItem }) => (
     <TouchableOpacity
       style={styles.menuButton}
       onPress={() => {

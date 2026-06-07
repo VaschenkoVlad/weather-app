@@ -1,0 +1,154 @@
+{
+  "timestamp": "2026-06-03T16:14:34.184Z",
+  "total": 29,
+  "passed": 29,
+  "failed": 0,
+  "successRate": 100,
+  "results": [
+    {
+      "name": "Повертає \"Rainy\" при precipitation > 0.5",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Rainy\" при великій кількості опадів незалежно від хмарності",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Cloudy\" при cloudCover > 80 та precipitation <= 0.5",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Cloudy\" при 100% хмарності",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Partly cloudy\" при cloudCover > 50 та <= 80",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Partly cloudy\" при cloudCover = 51",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Partly cloudy\" при cloudCover = 80",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Misty\" при humidity > 80 та відсутності опадів та хмар",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Misty\" при високій вологості навіть при помірній хмарності",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Sunny\" при сприятливих умовах (мало хмар, без опадів, низька вологість)",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Sunny\" при cloudCover = 0, precipitation = 0, humidity = 0",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"Sunny\" при граничних значеннях (cloudCover = 50, humidity = 80)",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"☀️\" для Sunny",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"⛅\" для Partly cloudy",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"☁️\" для Cloudy",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"🌧️\" для Rainy",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"🌫️\" для Misty",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"🌤️\" для невідомої умови (default)",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає \"🌤️\" для порожнього рядка",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає коректну структуру WeatherData для порожнього масиву годин",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Коректно обробляє першу годину як поточну погоду",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Коректно конвертує windSpeed з м/с у км/год",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Коректно формує погодинний прогноз на 24 години",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Коректно групує денний прогноз по днях",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Коректно використовує NOAA дані як fallback при відсутності SG",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Не використовує ECMWF дані (код перевіряє лише SG та NOAA)",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Повертає default 0 при повній відсутності даних про температуру",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "STORMGLASS_BASE містить коректний URL",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "NOMINATIM_BASE містить коректний URL",
+      "status": "PASS",
+      "error": null
+    }
+  ]
+}

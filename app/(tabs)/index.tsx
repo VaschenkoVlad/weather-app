@@ -1,50 +1,75 @@
 import { useRouter } from 'expo-router';
-import React, { useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-    Animated,
-    Dimensions,
-    PanResponder,
+    ActivityIndicator,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
 
-const { height } = Dimensions.get('window');
+import { useWeather } from '@/hooks/use-weather';
+import { useLocation } from '@/constants/location-context';
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const DAYS = [
-  { day: 'Mon', temp: 3, date: '28 Dec' },
-  { day: 'Tue', temp: 3, date: '29 Dec' },
-  { day: 'Wed', temp: 3, date: '30 Dec' },
-  { day: 'Thu', temp: 2, date: '31 Dec' },
-  { day: 'Fri', temp: 1, date: '1 Jan' },
-  { day: 'Sat', temp: 2, date: '2 Jan' },
-  { day: 'Sun', temp: 3, date: '3 Jan' },
-];
+function WindDirectionIcon(deg: number): string {
+  if (deg < 22.5 || deg >= 337.5) return '↑';
+  if (deg < 67.5) return '↗';
+  if (deg < 112.5) return '→';
+  if (deg < 157.5) return '↘';
+  if (deg < 202.5) return '↓';
+  if (deg < 247.5) return '↙';
+  if (deg < 292.5) return '←';
+  return '↖';
+}
 
 export default function WeatherScreen() {
-  const sheetY = useRef(new Animated.Value(height - 220)).current;
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const { location } = useLocation();
+  const { data, loading, error, refresh } = useWeather(location.lat, location.lng, location.city, location.country);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, g) => {
-        sheetY.setValue(Math.max(120, g.moveY));
-      },
-      onPanResponderRelease: (_, g) => {
-        Animated.spring(sheetY, {
-          toValue: g.moveY < height / 2 ? 120 : height - 220,
-          useNativeDriver: false,
-        }).start();
-      },
-    })
-  ).current;
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    if (refresh) await refresh();
+    setRefreshing(false);
+  }, [refresh]);
+
+  if (loading && !data) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#2196f3" />
+      </View>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <Text style={{ color: '#666', fontSize: 16 }}>{error}</Text>
+        <Pressable onPress={onRefresh} style={{ marginTop: 16 }}>
+          <Text style={{ color: '#2196f3', fontSize: 16 }}>Tap to retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!data) return null;
+
+  const { current, hourly, daily } = data;
+  const now = new Date();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2196f3" />
+      }
+    >
       {/* Top buttons */}
       <View style={styles.topBar}>
         <Pressable onPress={() => router.push('/(tabs)/search')} accessibilityLabel="Open search">
@@ -56,54 +81,71 @@ export default function WeatherScreen() {
       </View>
 
       {/* City */}
-      <Text style={styles.city}>New York</Text>
-      <Text style={styles.date}>Saturday, 28 December</Text>
-      <Text style={styles.status}>Sunny</Text>
+      <Text style={styles.city}>{data.city}</Text>
+      <Text style={styles.date}>
+        {dayNames[now.getDay()]}, {now.getDate()} {monthNames[now.getMonth()]}
+      </Text>
+      <Text style={styles.status}>{current.condition}</Text>
 
       {/* Temperature */}
-      <Text style={styles.temp}>5°</Text>
+      <Text style={styles.temp}>{current.temperature}°</Text>
+
+      {/* Details row */}
+      <View style={styles.detailsRow}>
+        <View style={styles.detailItem}>
+          <Text style={styles.detailValue}>{current.humidity}%</Text>
+          <Text style={styles.detailLabel}>Humidity</Text>
+        </View>
+        <View style={styles.detailItem}>
+          <Text style={styles.detailValue}>{WindDirectionIcon(current.windDirection)} {current.windSpeed} km/h</Text>
+          <Text style={styles.detailLabel}>Wind</Text>
+        </View>
+        <View style={styles.detailItem}>
+          <Text style={styles.detailValue}>{current.pressure} hPa</Text>
+          <Text style={styles.detailLabel}>Pressure</Text>
+        </View>
+        <View style={styles.detailItem}>
+          <Text style={styles.detailValue}>{current.visibility} km</Text>
+          <Text style={styles.detailLabel}>Visibility</Text>
+        </View>
+      </View>
 
       {/* Hourly forecast */}
+      <Text style={styles.sectionTitle}>Hourly</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hourly}>
-        {HOURS.map((h) => (
-          <View key={h} style={styles.hourCard}>
-            <Text style={styles.hour}>{h}:00</Text>
-            <Text style={styles.hourIcon}>☁️</Text>
-            <Text style={styles.hourTemp}>3°</Text>
+        {hourly.map((h, i) => (
+          <View key={i} style={styles.hourCard}>
+            <Text style={styles.hour}>{h.hour}</Text>
+            <Text style={styles.hourIcon}>{h.condition}</Text>
+            <Text style={styles.hourTemp}>{h.temp}°</Text>
           </View>
         ))}
       </ScrollView>
 
-      {/* Bottom sheet */}
-      <Animated.View style={[styles.sheet, { top: sheetY }]} {...panResponder.panHandlers}>
-        <View style={styles.dragHandle} />
-        <Text style={styles.sheetTitle}>7-Days forecast</Text>
-
-        {DAYS.map((d) => (
-          <Pressable key={d.day} style={styles.dayRow}>
-            <Text style={styles.day}>{d.day}</Text>
-            <Text>☁️</Text>
-            <Text>{d.temp}°</Text>
-            <Text>{d.date}</Text>
-          </Pressable>
-        ))}
-      </Animated.View>
-    </View>
+      {/* 7-day forecast */}
+      <Text style={styles.sectionTitle}>7-Days forecast</Text>
+      {daily.map((d, i) => (
+        <Pressable key={i} style={styles.dayRow}>
+          <Text style={styles.day}>{d.day}</Text>
+          <Text>{d.condition}</Text>
+          <Text>{d.tempMax}° / {d.tempMin}°</Text>
+          <Text>{d.date}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#eaf2ff',
-    alignItems: 'center',
     paddingTop: 60,
   },
   topBar: {
-    position: 'absolute',
-    top: 50,
-    width: '90%',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 10,
   },
   icon: {
     fontSize: 22,
@@ -111,6 +153,7 @@ const styles = StyleSheet.create({
   city: {
     fontSize: 28,
     fontWeight: '600',
+    textAlign: 'center',
   },
   date: {
     backgroundColor: '#2196f3',
@@ -119,25 +162,61 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     marginTop: 10,
+    alignSelf: 'center',
+    overflow: 'hidden',
   },
   status: {
     marginTop: 10,
     fontSize: 16,
+    textAlign: 'center',
+    color: '#555',
   },
   temp: {
     fontSize: 96,
     fontWeight: '300',
+    textAlign: 'center',
     marginVertical: 10,
   },
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    borderRadius: 16,
+    paddingVertical: 14,
+  },
+  detailItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  detailLabel: {
+    fontSize: 11,
+    color: '#777',
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 24,
+    marginBottom: 10,
+    color: '#333',
+  },
   hourly: {
-    marginTop: 20,
+    paddingLeft: 24,
+    marginBottom: 20,
   },
   hourCard: {
     width: 70,
     height: 100,
     backgroundColor: '#2196f3',
     borderRadius: 16,
-    marginHorizontal: 6,
+    marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -152,38 +231,22 @@ const styles = StyleSheet.create({
   hourTemp: {
     color: '#fff',
   },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-  },
-  dragHandle: {
-    width: 40,
-    height: 5,
-    backgroundColor: '#ccc',
-    borderRadius: 3,
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
   dayRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 14,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#fff',
     borderRadius: 12,
-    marginVertical: 6,
+    marginHorizontal: 24,
+    marginVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   day: {
     fontWeight: '500',
+    width: 40,
   },
 });
