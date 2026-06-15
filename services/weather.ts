@@ -58,12 +58,20 @@ export interface HourlyForecast {
   condition: string;
 }
 
+export interface DayTips {
+  wellbeing: string;
+  bestHour: number;
+  rainHour: number;
+  dress: string;
+}
+
 export interface WeatherData {
   city: string;
   country: string;
   current: CurrentWeather;
   hourly: HourlyForecast[];
   daily: DailyForecast[];
+  tips: DayTips;
 }
 
 function getCondition(cloudCover: number, precipitation: number, humidity: number): string {
@@ -83,6 +91,57 @@ function getConditionIcon(condition: string): string {
     case 'Misty': return '🌫️';
     default: return '🌤️';
   }
+}
+
+function getPressureTrend(now: number, later: number): string {
+  const diff = later - now;
+  if (diff <= -3) return 'falling';
+  if (diff >= 3) return 'rising';
+  return 'steady';
+}
+
+function getWellbeingNote(trend: string): string {
+  if (trend === 'falling') return 'Pressure is dropping fast — weather-sensitive people may feel discomfort';
+  if (trend === 'rising') return 'Pressure is rising fast — keep an eye on how you feel';
+  return 'Pressure is steady — no sharp changes';
+}
+
+function getDressTip(temp: number): string {
+  if (temp <= 0) return 'Dress very warm';
+  if (temp <= 10) return 'Take a jacket';
+  if (temp <= 18) return 'A light jacket is enough';
+  if (temp <= 26) return 'Comfortable in light clothes';
+  return 'Hot — light clothes and water';
+}
+
+function getRainHour(hours: StormglassHour[]): number {
+  for (let i = 0; i < Math.min(hours.length, 12); i++) {
+    const rain = hours[i].precipitation?.sg ?? hours[i].precipitation?.noaa ?? 0;
+    if (rain > 0.5) return new Date(hours[i].time).getHours();
+  }
+  return -1;
+}
+
+function getBestHour(hours: StormglassHour[]): number {
+  let bestIndex = -1;
+  let bestScore = -1000;
+  for (let i = 0; i < Math.min(hours.length, 12); i++) {
+    const hour = new Date(hours[i].time).getHours();
+    if (hour < 8 || hour > 20) continue;
+    const temp = hours[i].airTemperature?.sg ?? hours[i].airTemperature?.noaa ?? 0;
+    const rain = hours[i].precipitation?.sg ?? hours[i].precipitation?.noaa ?? 0;
+    const wind = (hours[i].windSpeed?.sg ?? hours[i].windSpeed?.noaa ?? 0) * 3.6;
+    let score = 100;
+    if (rain > 0.5) score = score - 50;
+    score = score - Math.abs(temp - 20);
+    score = score - wind;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+  if (bestIndex === -1) return -1;
+  return new Date(hours[bestIndex].time).getHours();
 }
 
 export async function fetchWeather(lat: number, lng: number): Promise<StormglassResponse> {
@@ -154,6 +213,7 @@ export function buildWeatherData(
       },
       hourly: [],
       daily: [],
+      tips: { wellbeing: 'No data', bestHour: -1, rainHour: -1, dress: '' },
     };
   }
 
@@ -228,5 +288,15 @@ export function buildWeatherData(
     });
   }
 
-  return { city, country, current: curr, hourly, daily };
+  const later = hours[3] ?? hours[hours.length - 1];
+  const laterPressure = later.pressure?.sg ?? later.pressure?.noaa ?? curr.pressure;
+  const trend = getPressureTrend(curr.pressure, Math.round(laterPressure));
+  const tips: DayTips = {
+    wellbeing: getWellbeingNote(trend),
+    bestHour: getBestHour(hours),
+    rainHour: getRainHour(hours),
+    dress: getDressTip(curr.temperature),
+  };
+
+  return { city, country, current: curr, hourly, daily, tips };
 }

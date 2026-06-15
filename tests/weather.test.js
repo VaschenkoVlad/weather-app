@@ -9,6 +9,11 @@
 const {
   getCondition,
   getConditionIcon,
+  getPressureTrend,
+  getWellbeingNote,
+  getDressTip,
+  getRainHour,
+  getBestHour,
   buildWeatherData,
   STORMGLASS_BASE,
   NOMINATIM_BASE
@@ -249,6 +254,75 @@ test('STORMGLASS_BASE містить коректний URL', () => {
 
 test('NOMINATIM_BASE містить коректний URL', () => {
   assert(NOMINATIM_BASE.includes('nominatim.openstreetmap'), 'URL має містити nominatim.openstreetmap');
+});
+
+// ===== ТЕСТИ: Поради дня (барометр самопочуття та радник) =====
+console.log('\n📋 Тестування порад дня (тренд тиску, одяг, дощ, найкращий час)');
+
+test('getPressureTrend повертає "falling" при різкому падінні тиску', () => {
+  assertEqual(getPressureTrend(1015, 1010), 'falling');
+});
+
+test('getPressureTrend повертає "rising" при різкому зростанні тиску', () => {
+  assertEqual(getPressureTrend(1010, 1015), 'rising');
+});
+
+test('getPressureTrend повертає "steady" при незначній зміні тиску', () => {
+  assertEqual(getPressureTrend(1013, 1014), 'steady');
+});
+
+test('getDressTip радить тепло вдягнутись при морозі', () => {
+  assertEqual(getDressTip(-5), 'Dress very warm');
+});
+
+test('getDressTip радить куртку при прохолоді', () => {
+  assertEqual(getDressTip(8), 'Take a jacket');
+});
+
+test('getDressTip радить легкий одяг при спеці', () => {
+  assertEqual(getDressTip(30), 'Hot — light clothes and water');
+});
+
+test('getRainHour повертає годину початку дощу', () => {
+  const hours = [
+    { time: '2026-06-03T12:00:00Z', precipitation: { sg: 0 } },
+    { time: '2026-06-03T13:00:00Z', precipitation: { sg: 0 } },
+    { time: '2026-06-03T14:00:00Z', precipitation: { sg: 1.2 } },
+  ];
+  assertEqual(getRainHour(hours), new Date('2026-06-03T14:00:00Z').getHours());
+});
+
+test('getRainHour повертає -1, коли дощу не очікується', () => {
+  const hours = [
+    { time: '2026-06-03T12:00:00Z', precipitation: { sg: 0 } },
+    { time: '2026-06-03T13:00:00Z', precipitation: { sg: 0.1 } },
+  ];
+  assertEqual(getRainHour(hours), -1);
+});
+
+test('getBestHour обирає суху денну годину з комфортною температурою', () => {
+  const night = new Date(2026, 5, 3, 3, 0, 0);
+  const day = new Date(2026, 5, 3, 14, 0, 0);
+  const hours = [
+    { time: night.toISOString(), airTemperature: { sg: 20 }, precipitation: { sg: 0 }, windSpeed: { sg: 1 } },
+    { time: day.toISOString(), airTemperature: { sg: 20 }, precipitation: { sg: 0 }, windSpeed: { sg: 1 } },
+  ];
+  assertEqual(getBestHour(hours), 14);
+});
+
+test('buildWeatherData додає об\'єкт tips з порадами', () => {
+  const hour = {
+    time: '2026-06-03T12:00:00Z',
+    airTemperature: { sg: 8 },
+    cloudCover: { sg: 30 },
+    humidity: { sg: 50 },
+    precipitation: { sg: 0 },
+    windSpeed: { sg: 5 },
+    pressure: { sg: 1013 },
+  };
+  const result = buildWeatherData({ hours: [hour] }, 'Київ', 'Україна');
+  assertEqual(result.tips.dress, 'Take a jacket');
+  assert(typeof result.tips.wellbeing === 'string', 'wellbeing має бути рядком');
 });
 
 // ===== ПІДСУМОК =====

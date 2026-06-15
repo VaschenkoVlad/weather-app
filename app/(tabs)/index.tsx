@@ -110,6 +110,19 @@ export default function WeatherScreen() {
         </View>
       </View>
 
+      {/* Day advisor */}
+      <View style={styles.adviceCard}>
+        <Text style={styles.adviceTitle}>💡 Day advisor</Text>
+        {data.tips.bestHour !== -1 && (
+          <Text style={styles.adviceRow}>🚶 Best time to go out: around {data.tips.bestHour}:00</Text>
+        )}
+        {data.tips.rainHour !== -1 && (
+          <Text style={styles.adviceRow}>🌂 Rain likely around {data.tips.rainHour}:00</Text>
+        )}
+        <Text style={styles.adviceRow}>🧥 {data.tips.dress}</Text>
+        <Text style={styles.adviceRow}>🌡️ {data.tips.wellbeing}</Text>
+      </View>
+
       {/* Hourly forecast */}
       <Text style={styles.sectionTitle}>Hourly</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hourly}>
@@ -199,6 +212,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#777',
     marginTop: 2,
+  },
+  adviceCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+  },
+  adviceTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  adviceRow: {
+    fontSize: 14,
+    color: '#444',
+    marginBottom: 6,
   },
   sectionTitle: {
     fontSize: 16,

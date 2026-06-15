@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-06-03T16:14:34.184Z",
-  "total": 29,
-  "passed": 29,
+  "timestamp": "2026-06-14T18:53:40.084Z",
+  "total": 39,
+  "passed": 39,
   "failed": 0,
   "successRate": 100,
   "results": [
@@ -147,6 +147,56 @@
     },
     {
       "name": "NOMINATIM_BASE містить коректний URL",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getPressureTrend повертає \"falling\" при різкому падінні тиску",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getPressureTrend повертає \"rising\" при різкому зростанні тиску",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getPressureTrend повертає \"steady\" при незначній зміні тиску",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getDressTip радить тепло вдягнутись при морозі",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getDressTip радить куртку при прохолоді",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getDressTip радить легкий одяг при спеці",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getRainHour повертає годину початку дощу",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getRainHour повертає -1, коли дощу не очікується",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "getBestHour обирає суху денну годину з комфортною температурою",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "buildWeatherData додає об'єкт tips з порадами",
       "status": "PASS",
       "error": null
     }
